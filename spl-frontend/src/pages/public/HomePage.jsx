@@ -1,0 +1,221 @@
+import { useEffect, useState } from "react";
+import LiveMatchBanner from "../../components/match/LiveMatchBanner";
+import AnnouncementCardSection from "../../components/match/AnnouncementCardSection";
+import AnnouncementPopup from "../../components/match/AnnouncementPopup";
+import RouteAction from "../../components/common/RouteAction";
+import FranchiseSection from "../../components/team/FranchiseSection";
+import PointsTableSection from "../../components/team/PointsTableSection";
+import TopPerformersSection from "../../components/player/TopPerformersSection";
+import LatestNewsSection from "../../components/common/LatestNewsSection";
+import SponsorSection from "../../components/common/SponsorSection";
+import SeasonStatsBar from "../../components/dashboard/SeasonStatsBar";
+import { defaultAnnouncementItems } from "../../components/match/AnnouncementCardSection";
+import useHomeContent from "../../hooks/useHomeContent";
+import useHomeHeroStats from "../../hooks/useHomeHeroStats";
+import useTopPerformers from "../../hooks/useTopPerformers";
+
+export default function HomePage() {
+  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
+  const [shouldRenderHeroVideo, setShouldRenderHeroVideo] = useState(false);
+  const [heroVideoSrc, setHeroVideoSrc] = useState("");
+  const heroVideoUrl = String(import.meta.env.VITE_HERO_VIDEO_URL || "").trim();
+  const heroVideoEnabled =
+    import.meta.env.VITE_ENABLE_HERO_VIDEO === "true" && heroVideoUrl.length > 0;
+  const {
+    content: homeContent,
+    loading: homeContentLoading,
+    error: homeContentError,
+  } = useHomeContent();
+  const { stats, error: heroStatsError, loading: heroStatsLoading } =
+    useHomeHeroStats();
+  const {
+    performers: topPerformers,
+    error: topPerformersError,
+    loading: topPerformersLoading,
+  } = useTopPerformers();
+  const announcementItems =
+    Array.isArray(homeContent?.announcements) && homeContent.announcements.length > 0
+      ? homeContent.announcements
+      : defaultAnnouncementItems;
+  const topPerformerItems =
+    Array.isArray(topPerformers) && topPerformers.length > 0
+      ? topPerformers
+      : homeContent?.topPerformers;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    )?.matches;
+    const isDesktopViewport = window.matchMedia?.("(min-width: 1024px)")?.matches;
+    const saveDataEnabled = Boolean(window.navigator?.connection?.saveData);
+    const shouldLoadHeroVideo = Boolean(
+      heroVideoEnabled &&
+        isDesktopViewport &&
+        !prefersReducedMotion &&
+        !saveDataEnabled
+    );
+
+    setShouldRenderHeroVideo(false);
+    setHeroVideoSrc("");
+
+    if (shouldLoadHeroVideo) {
+      setHeroVideoSrc(heroVideoUrl);
+      setShouldRenderHeroVideo(true);
+    }
+
+    if (announcementItems.length > 0) {
+      setShowAnnouncementPopup(true);
+    }
+  }, [announcementItems.length, heroVideoEnabled, heroVideoUrl]);
+
+  return (
+    <>
+      <AnnouncementPopup
+        open={showAnnouncementPopup}
+        items={announcementItems}
+        onClose={() => setShowAnnouncementPopup(false)}
+      />
+
+      <section className="relative overflow-hidden bg-[#07111f]">
+        {shouldRenderHeroVideo && heroVideoSrc ? (
+          <div className="absolute inset-0">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="none"
+              className="h-full w-full object-cover brightness-110 contrast-110 saturate-125"
+            >
+              <source src={heroVideoSrc} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        ) : null}
+
+        <div className="absolute inset-0 bg-black/40" />
+
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,21,37,0.30)_0%,rgba(11,16,32,0.22)_18%,rgba(15,59,46,0.16)_38%,rgba(12,74,110,0.16)_58%,rgba(30,58,138,0.16)_74%,rgba(124,45,18,0.12)_88%,rgba(17,24,39,0.20)_100%)]" />
+
+        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-78px)] w-full max-w-[1440px] items-center px-4 py-10 sm:min-h-[calc(100vh-86px)] sm:px-6 md:py-14 lg:px-8 xl:px-10">
+          <div className="flex w-full flex-col items-center text-center">
+            <p className="mb-4 font-condensed text-xs uppercase tracking-[0.35em] text-[#f0b4cb] sm:text-sm md:text-base">
+              Raynx Systems Presents
+            </p>
+
+            <div className="w-full max-w-[1100px]">
+              <h1 className="font-heading text-[1.85rem] leading-[0.95] tracking-[0.04em] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:text-[2.7rem] md:text-[3.4rem] lg:text-[4rem] xl:text-[4.6rem]">
+                SOFTWARE{" "}
+                <span className="bg-gradient-to-r from-[#f0b4cb] via-[#c86d93] to-[#853953] bg-clip-text text-transparent">
+                  PREMIER
+                </span>{" "}
+                LEAGUE
+              </h1>
+            </div>
+
+            <p className="mt-5 max-w-3xl text-sm leading-6 text-slate-100 drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] sm:text-base sm:leading-7 md:text-lg md:leading-8 lg:text-[1.15rem]">
+              India&apos;s premier internal software cricket league — where
+              engineering meets the crease. A competitive weekend platform for
+              software professionals to play, track, and celebrate cricket.
+            </p>
+
+            <div className="mt-8 flex w-full flex-col items-center justify-center gap-4 sm:flex-row">
+              <RouteAction
+                to="/fixtures"
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-[#c86d93]/35 bg-[#853953]/28 px-7 py-3.5 font-condensed text-base uppercase tracking-[0.16em] text-[#ffd9e8] shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.02] hover:bg-[#853953]/42 hover:text-white sm:w-auto sm:min-w-[190px]"
+              >
+                View Fixtures
+              </RouteAction>
+
+              <RouteAction
+                to="/teams"
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-7 py-3.5 font-condensed text-base uppercase tracking-[0.16em] text-white shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.02] hover:border-[#c86d93]/45 hover:bg-[#853953]/18 hover:text-[#ffd9e8] sm:w-auto sm:min-w-[190px]"
+              >
+                Meet The Teams
+              </RouteAction>
+            </div>
+
+            <div className="mt-8 grid w-full max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
+              {stats.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-[20px] border border-white/15 bg-[rgba(133,57,83,0.26)] px-5 py-5 text-center shadow-[0_8px_30px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-1 hover:bg-[#853953]"
+                >
+                  <div className="font-heading text-3xl leading-none text-[#ffd9e8] sm:text-[2.2rem] md:text-[2.5rem]">
+                    {item.value}
+                  </div>
+
+                  <div className="mt-2 font-condensed text-xs uppercase tracking-[0.22em] text-slate-100 sm:text-sm md:text-base">
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {heroStatsError ? (
+              <p className="mt-4 text-xs text-slate-200">
+                Live league stats are temporarily unavailable. Showing fallback values.
+              </p>
+            ) : heroStatsLoading ? (
+              <p className="mt-4 text-xs text-slate-200">Refreshing live league stats...</p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+      <div className="spl-theme-surface">
+  {homeContentError ? (
+    <div className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
+      Home page live content is temporarily unavailable. Showing the latest fallback content.
+    </div>
+  ) : homeContentLoading ? (
+    <div className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
+      Refreshing latest home page content...
+    </div>
+  ) : null}
+
+  <div className="pt-8 md:pt-10">
+    <LiveMatchBanner />
+  </div>
+
+  <div id="announcements">
+    <AnnouncementCardSection items={announcementItems} />
+  </div>
+
+  <div id="latest-news">
+    <LatestNewsSection items={homeContent?.latestNews} />
+  </div>
+
+  <div id="franchises">
+    <FranchiseSection />
+  </div>
+
+  <div id="points-table">
+    <PointsTableSection standingsData={homeContent?.standings} />
+  </div>
+
+  <div id="top-performers">
+    <TopPerformersSection items={topPerformerItems} />
+    {topPerformersError ? (
+      <p className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
+        Top performer scores are temporarily unavailable. Showing the latest cached lineup.
+      </p>
+    ) : topPerformersLoading ? (
+      <p className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
+        Refreshing live top performer scores...
+      </p>
+    ) : null}
+  </div>
+
+  <div id="sponsors">
+    <SponsorSection sponsorsData={homeContent?.sponsors} />
+  </div>
+
+  <SeasonStatsBar />
+</div>
+    </>
+  );
+}

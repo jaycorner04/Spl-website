@@ -1,0 +1,151 @@
+name: Deploy To AWS EC2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      NODE_VERSION: "20"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET }}
+      AWS_SSM_INSTANCE_ID: ${{ vars.AWS_SSM_INSTANCE_ID }}
+      AWS_DEPLOY_ROOT: ${{ vars.AWS_DEPLOY_ROOT }}
+      AWS_WINDOWS_SERVICE_NAME: ${{ vars.AWS_WINDOWS_SERVICE_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            spl-frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix spl-frontend
+
+      - name: Run release verification
+        run: npm run release:check
+
+      - name: Validate deploy configuration
+        shell: bash
+        run: |
+          test -n "$AWS_REGION" || { echo "AWS_REGION is required"; exit 1; }
+          test -n "$AWS_DEPLOY_BUCKET" || { echo "AWS_DEPLOY_BUCKET is required"; exit 1; }
+          test -n "$AWS_SSM_INSTANCE_ID" || { echo "AWS_SSM_INSTANCE_ID is required"; exit 1; }
+
+      - name: Create deployment bundle
+        shell: bash
+        run: |
+          mkdir -p out
+          zip -r out/spl-deploy.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "node_modules/*" \
+            -x "spl-frontend/node_modules/*" \
+            -x "spl-frontend/dist/*" \
+            -x ".env*" \
+            -x "spl-frontend/.env*" \
+            -x "backend.log"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload deployment bundle
+        id: bundle
+        shell: bash
+        run: |
+          BUNDLE_KEY="spl/${GITHUB_REPOSITORY#*/}/${GITHUB_SHA}.zip"
+          aws s3 cp out/spl-deploy.zip "s3://${AWS_DEPLOY_BUCKET}/${BUNDLE_KEY}"
+          BUNDLE_URL=$(aws s3 presign "s3://${AWS_DEPLOY_BUCKET}/${BUNDLE_KEY}" --expires-in 3600)
+          echo "bundle_key=${BUNDLE_KEY}" >> "$GITHUB_OUTPUT"
+          echo "bundle_url=${BUNDLE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Build SSM command payload
+        shell: bash
+        env:
+          BUNDLE_URL: ${{ steps.bundle.outputs.bundle_url }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const deploymentRoot = process.env.AWS_DEPLOY_ROOT || "C:\\inetpub\\spl";
+          const serviceName = process.env.AWS_WINDOWS_SERVICE_NAME || "SPLNodeApp";
+          const bundleUrl = process.env.BUNDLE_URL;
+          const instanceId = process.env.AWS_SSM_INSTANCE_ID;
+          const payload = {
+            DocumentName: "AWS-RunPowerShellScript",
+            InstanceIds: [instanceId],
+            Comment: `Deploy SPL ${process.env.GITHUB_SHA}`,
+            Parameters: {
+              commands: [
+                "$ErrorActionPreference = 'Stop'",
+                `$deploymentRoot = '${deploymentRoot}'`,
+                `$bundleUrl = '${bundleUrl}'`,
+                `$serviceName = '${serviceName}'`,
+                "$bootstrapRoot = Join-Path $env:TEMP 'spl-bootstrap'",
+                "$bundlePath = Join-Path $bootstrapRoot 'spl-deploy.zip'",
+                "$extractRoot = Join-Path $bootstrapRoot 'bundle'",
+                "New-Item -ItemType Directory -Force -Path $bootstrapRoot | Out-Null",
+                "if (Test-Path $extractRoot) { Remove-Item -LiteralPath $extractRoot -Recurse -Force }",
+                "Invoke-WebRequest -Uri $bundleUrl -OutFile $bundlePath",
+                "Expand-Archive -LiteralPath $bundlePath -DestinationPath $extractRoot -Force",
+                "$deployScript = Join-Path $extractRoot 'deployment\\aws\\ec2-deploy.ps1'",
+                "if (-not (Test-Path $deployScript)) { throw 'Deployment script not found in bundle.' }",
+                "powershell -ExecutionPolicy Bypass -File $deployScript -DeploymentRoot $deploymentRoot -BundleRoot $extractRoot -ServiceName $serviceName -NodeEnv 'production'",
+              ],
+            },
+          };
+          fs.mkdirSync("out", { recursive: true });
+          fs.writeFileSync("out/ssm-command.json", JSON.stringify(payload, null, 2));
+          NODE
+
+      - name: Trigger SSM deployment
+        id: ssm
+        shell: bash
+        run: |
+          COMMAND_ID=$(aws ssm send-command --cli-input-json file://out/ssm-command.json --query 'Command.CommandId' --output text)
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for SSM completion
+        shell: bash
+        run: |
+          COMMAND_ID="${{ steps.ssm.outputs.command_id }}"
+          INSTANCE_ID="${AWS_SSM_INSTANCE_ID}"
+          for attempt in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo "Pending")
+            echo "SSM status: $STATUS"
+            if [ "$STATUS" = "Success" ]; then
+              exit 0
+            fi
+            if [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelling" ]; then
+              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for SSM deployment completion."
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+          exit 1

@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "company_name": "Wipro",
+    "owner_name": "Rohit Verma",
+    "address": "Hyderabad, Telangana",
+    "website": "https://www.wipro.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 2,
+    "company_name": "Infosys",
+    "owner_name": "Kiran Kumar",
+    "address": "Bengaluru, Karnataka",
+    "website": "https://www.infosys.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 3,
+    "company_name": "HCL",
+    "owner_name": "Pradeep Nair",
+    "address": "Noida, Uttar Pradesh",
+    "website": "https://www.hcltech.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 4,
+    "company_name": "TCS",
+    "owner_name": "Sanjay Iyer",
+    "address": "Mumbai, Maharashtra",
+    "website": "https://www.tcs.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 5,
+    "company_name": "Zoho",
+    "owner_name": "Mohan Raj",
+    "address": "Chennai, Tamil Nadu",
+    "website": "https://www.zoho.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 6,
+    "company_name": "Reliance",
+    "owner_name": "Naveen Reddy",
+    "address": "Mumbai, Maharashtra",
+    "website": "https://www.ril.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 7,
+    "company_name": "Paytm",
+    "owner_name": "Arvind Das",
+    "address": "Noida, Uttar Pradesh",
+    "website": "https://paytm.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 8,
+    "company_name": "Mahindra",
+    "owner_name": "Dinesh Rao",
+    "address": "Pune, Maharashtra",
+    "website": "https://www.mahindra.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 9,
+    "company_name": "Flipkart",
+    "owner_name": "Varun Sharma",
+    "address": "Bengaluru, Karnataka",
+    "website": "https://www.flipkart.com",
+    "logo": "",
+    "status": "Approved"
+  },
+  {
+    "id": 10,
+    "company_name": "Tata",
+    "owner_name": "Harish Menon",
+    "address": "Mumbai, Maharashtra",
+    "website": "https://www.tata.com",
+    "logo": "",
+    "status": "Approved"
+  }
+]

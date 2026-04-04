@@ -1,0 +1,10 @@
+node_modules/
+.vscode/
+backend.log
+.env
+.env.local
+.env.production.local
+spl-frontend/node_modules/
+spl-frontend/dist/
+spl-frontend/.env.local
+spl-frontend/.env.production.local

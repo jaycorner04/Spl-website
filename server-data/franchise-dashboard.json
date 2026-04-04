@@ -1,0 +1,15 @@
+{
+  "heroTitle": "Franchise Dashboard",
+  "sectionTitles": {
+    "nextMatch": "Next Match",
+    "notices": "Notices",
+    "squadSummary": "Squad Summary",
+    "budgetTrend": "Budget Trend (Rs Lakh)"
+  },
+  "summaryCards": {
+    "squadStrength": "Squad Strength",
+    "availableBudget": "Available Budget",
+    "winsThisSeason": "Wins This Season",
+    "pendingNotices": "Pending Notices"
+  }
+}

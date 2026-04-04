@@ -1,0 +1,26 @@
+{
+  "name": "spl",
+  "private": true,
+  "scripts": {
+    "db:health": "node scripts/db-health.js",
+    "db:sync-seed": "node scripts/sync-seed-data.js",
+    "env:generate:production": "node scripts/generate-production-env.js",
+    "validate:env": "node scripts/env-check.js",
+    "frontend": "npm run dev --prefix spl-frontend",
+    "dev": "node scripts/dev.js",
+    "build:frontend": "npm run build --prefix spl-frontend",
+    "qa:frontend-routes": "node scripts/frontend-route-smoke.js",
+    "qa:server-spa": "node scripts/server-spa-smoke.js",
+    "qa:deployed": "node scripts/deployed-smoke.js",
+    "release:check": "npm test && npm run build:frontend && npm run qa:frontend-routes && npm run qa:server-spa",
+    "test:smoke": "node --test scripts/dashboard-services.test.js",
+    "test:integration": "node --test scripts/api-integration.test.js",
+    "test": "npm run test:smoke && npm run test:integration",
+    "api": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.6",
+    "mssql": "^12.2.1"
+  }
+}

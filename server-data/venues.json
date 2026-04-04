@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "ground_name": "SPL Main Stadium",
+    "location": "HITEC City",
+    "city": "Hyderabad",
+    "capacity": 18000,
+    "contact_person": "Venue Ops Desk",
+    "contact_phone": "040-4000-1200"
+  },
+  {
+    "id": 2,
+    "ground_name": "Raynx Arena",
+    "location": "Whitefield",
+    "city": "Bengaluru",
+    "capacity": 14000,
+    "contact_person": "Match Operations",
+    "contact_phone": "080-5000-2200"
+  },
+  {
+    "id": 3,
+    "ground_name": "Tech Park Ground",
+    "location": "OMR Corridor",
+    "city": "Chennai",
+    "capacity": 12000,
+    "contact_person": "Ground Control",
+    "contact_phone": "044-6000-3200"
+  }
+]

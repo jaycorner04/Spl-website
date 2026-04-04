@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "invoice_code": "INV-1001",
+    "party": "TechNova Sponsors",
+    "category": "Sponsorship",
+    "amount": 320000,
+    "due_date": "2026-03-25",
+    "status": "Pending",
+    "flow": "Income",
+    "issued_date": "2026-03-18",
+    "notes": "Title sponsorship installment for March."
+  },
+  {
+    "id": 2,
+    "invoice_code": "INV-1002",
+    "party": "Hyderabad Arena",
+    "category": "Venue",
+    "amount": 145000,
+    "due_date": "2026-03-22",
+    "status": "Paid",
+    "flow": "Expense",
+    "issued_date": "2026-03-15",
+    "notes": "Venue settlement for weekend fixtures."
+  },
+  {
+    "id": 3,
+    "invoice_code": "INV-1003",
+    "party": "Match Officials Board",
+    "category": "Operations",
+    "amount": 78000,
+    "due_date": "2026-03-27",
+    "status": "Pending",
+    "flow": "Expense",
+    "issued_date": "2026-03-19",
+    "notes": "Officials and scorer allocation charges."
+  },
+  {
+    "id": 4,
+    "invoice_code": "INV-1004",
+    "party": "Merch Partner",
+    "category": "Merchandise",
+    "amount": 210000,
+    "due_date": "2026-03-21",
+    "status": "Paid",
+    "flow": "Income",
+    "issued_date": "2026-03-14",
+    "notes": "Fan merchandise revenue settlement."
+  },
+  {
+    "id": 5,
+    "invoice_code": "INV-1005",
+    "party": "Streaming Vendor",
+    "category": "Media",
+    "amount": 96000,
+    "due_date": "2026-03-29",
+    "status": "Overdue",
+    "flow": "Expense",
+    "issued_date": "2026-03-16",
+    "notes": "Production and streaming support invoice."
+  }
+]

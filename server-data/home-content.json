@@ -1,0 +1,315 @@
+{
+  "announcements": [
+    {
+      "label": "Upcoming Match",
+      "accent": "bg-[#5f2439] text-white",
+      "title": "Wipro vs Infosys",
+      "detail": "Mar 20, 2026 - 7:30 PM",
+      "meta": "SPL Main Stadium, Hyderabad"
+    },
+    {
+      "label": "Next Match",
+      "accent": "bg-[#b88a2a] text-white",
+      "title": "HCL vs TCS",
+      "detail": "Mar 22, 2026 - 6:30 PM",
+      "meta": "Raynx Arena, Bengaluru"
+    },
+    {
+      "label": "Completed Matches",
+      "accent": "bg-emerald-600 text-white",
+      "title": "Paytm beat Mahindra",
+      "detail": "Won by 14 runs",
+      "meta": "Latest result - 172/5 vs 158/8"
+    }
+  ],
+  "standings": {
+    "season": [
+      {
+        "pos": 1,
+        "team": "Wipro",
+        "logoKey": "wipro",
+        "logoColor": "#173a67",
+        "played": 8,
+        "won": 6,
+        "lost": 2,
+        "nrr": "+1.243",
+        "pts": 12
+      },
+      {
+        "pos": 2,
+        "team": "Infosys",
+        "logoKey": "infosys",
+        "logoColor": "#0072ce",
+        "played": 8,
+        "won": 5,
+        "lost": 3,
+        "nrr": "+0.812",
+        "pts": 10
+      },
+      {
+        "pos": 3,
+        "team": "HCL",
+        "logoKey": "hcl",
+        "logoColor": "#0f6caa",
+        "played": 8,
+        "won": 5,
+        "lost": 3,
+        "nrr": "+0.411",
+        "pts": 10
+      },
+      {
+        "pos": 4,
+        "team": "TCS",
+        "logoKey": "tcs",
+        "logoColor": "#23262d",
+        "played": 8,
+        "won": 4,
+        "lost": 4,
+        "nrr": "-0.091",
+        "pts": 8
+      },
+      {
+        "pos": 5,
+        "team": "Zoho",
+        "logoKey": "zoho",
+        "logoColor": "#e42527",
+        "played": 8,
+        "won": 4,
+        "lost": 4,
+        "nrr": "-0.233",
+        "pts": 8
+      },
+      {
+        "pos": 6,
+        "team": "Reliance",
+        "logoKey": "reliance",
+        "logoColor": "#c6a04d",
+        "played": 8,
+        "won": 3,
+        "lost": 5,
+        "nrr": "-0.517",
+        "pts": 6
+      },
+      {
+        "pos": 7,
+        "team": "Paytm",
+        "logoKey": "paytm",
+        "logoColor": "#00baf2",
+        "played": 8,
+        "won": 3,
+        "lost": 5,
+        "nrr": "-0.602",
+        "pts": 6
+      },
+      {
+        "pos": 8,
+        "team": "Mahindra",
+        "logoKey": "mahindra",
+        "logoColor": "#d71920",
+        "played": 8,
+        "won": 2,
+        "lost": 6,
+        "nrr": "-0.844",
+        "pts": 4
+      },
+      {
+        "pos": 9,
+        "team": "Flipkart",
+        "logoKey": "flipkart",
+        "logoColor": "#2874f0",
+        "played": 8,
+        "won": 2,
+        "lost": 6,
+        "nrr": "-1.011",
+        "pts": 4
+      },
+      {
+        "pos": 10,
+        "team": "Tata",
+        "logoKey": "tata",
+        "logoColor": "#2c4a9a",
+        "played": 8,
+        "won": 1,
+        "lost": 7,
+        "nrr": "-1.244",
+        "pts": 2
+      }
+    ],
+    "playoffs": [
+      {
+        "seed": "Q1",
+        "team": "Wipro",
+        "logoKey": "wipro",
+        "logoColor": "#173a67",
+        "stage": "Qualifier 1",
+        "opponent": "Infosys",
+        "status": "Awaiting Match"
+      },
+      {
+        "seed": "Q2",
+        "team": "Infosys",
+        "logoKey": "infosys",
+        "logoColor": "#0072ce",
+        "stage": "Qualifier 1",
+        "opponent": "Wipro",
+        "status": "Awaiting Match"
+      },
+      {
+        "seed": "E1",
+        "team": "HCL",
+        "logoKey": "hcl",
+        "logoColor": "#0f6caa",
+        "stage": "Eliminator",
+        "opponent": "TCS",
+        "status": "Knockout Match"
+      },
+      {
+        "seed": "E2",
+        "team": "TCS",
+        "logoKey": "tcs",
+        "logoColor": "#23262d",
+        "stage": "Eliminator",
+        "opponent": "HCL",
+        "status": "Knockout Match"
+      }
+    ]
+  },
+  "topPerformers": [
+    {
+      "name": "Viswanadh",
+      "role": "All-Rounder",
+      "team": "Infosys",
+      "points": 243,
+      "playerKey": "viswanadh",
+      "accent": "from-yellow-500/35 via-orange-400/10 to-transparent",
+      "statLine": "243 PTS",
+      "statLabel": "Top All-Rounder",
+      "tableHeaders": ["M", "Runs", "Wkts", "SR", "Eco"],
+      "tableValues": ["5", "103", "3", "148.2", "6.4"]
+    },
+    {
+      "name": "Abhishek",
+      "role": "Batsman",
+      "team": "Wipro",
+      "points": 228,
+      "playerKey": "abhishek",
+      "accent": "from-cyan-500/35 via-sky-400/10 to-transparent",
+      "statLine": "228 RUNS",
+      "statLabel": "Top Batter",
+      "tableHeaders": ["M", "Runs", "Avg", "SR", "4/6"],
+      "tableValues": ["5", "228", "76.00", "145.5", "27/14"]
+    },
+    {
+      "name": "Prasad",
+      "role": "Bowler",
+      "team": "HCL",
+      "points": 214,
+      "playerKey": null,
+      "accent": "from-emerald-500/35 via-teal-400/10 to-transparent",
+      "statLine": "4/21",
+      "statLabel": "Top Bowler",
+      "tableHeaders": ["M", "Wkts", "Eco", "BBI", "Dot%"],
+      "tableValues": ["5", "4", "5.25", "4/21", "58"]
+    },
+    {
+      "name": "Sandeep",
+      "role": "All-Rounder",
+      "team": "Reliance",
+      "points": 201,
+      "playerKey": "sandeep",
+      "accent": "from-rose-500/35 via-red-400/10 to-transparent",
+      "statLine": "201 PTS",
+      "statLabel": "Top All-Rounder",
+      "tableHeaders": ["M", "Runs", "Wkts", "SR", "Eco"],
+      "tableValues": ["5", "111", "2", "139.4", "6.9"]
+    },
+    {
+      "name": "Santhosh",
+      "role": "Batsman",
+      "team": "Zoho",
+      "points": 189,
+      "playerKey": null,
+      "accent": "from-violet-500/35 via-fuchsia-400/10 to-transparent",
+      "statLine": "189 RUNS",
+      "statLabel": "Top Batter",
+      "tableHeaders": ["M", "Runs", "Avg", "SR", "4/6"],
+      "tableValues": ["5", "189", "63.00", "142.8", "20/9"]
+    }
+  ],
+  "latestNews": [
+    {
+      "title": "Wipro and Infosys set for a season-defining clash in Hyderabad",
+      "category": "Match Preview",
+      "date": "Apr 4, 2026",
+      "excerpt": "The current table leaders meet under lights as both sides push for playoff control."
+    },
+    {
+      "title": "Abhishek and Viswanadh continue to lead the SPL performer charts",
+      "category": "Player Spotlight",
+      "date": "Apr 3, 2026",
+      "excerpt": "Batting brilliance from Wipro and all-round impact from Infosys keep both stars ahead of the field."
+    },
+    {
+      "title": "HCL and TCS finalise preparations for a crucial Bengaluru fixture",
+      "category": "League Update",
+      "date": "Apr 2, 2026",
+      "excerpt": "Both teams are level on points and will treat the next round as a direct playoff-position battle."
+    },
+    {
+      "title": "Paytm's recent win over Mahindra reshapes the mid-table race",
+      "category": "Match Report",
+      "date": "Apr 1, 2026",
+      "excerpt": "A disciplined defence of 172/5 tightened the race for the final qualification spots."
+    }
+  ],
+  "sponsors": {
+    "titleSponsor": {
+      "label": "Title Sponsor",
+      "name": "Raynx Systems Private Limited",
+      "imageFile": "raynx-systems-title-sponsor.jpg"
+    },
+    "premierPartners": [
+      {
+        "name": "Angel One"
+      },
+      {
+        "name": "RuPay"
+      },
+      {
+        "name": "Google AI Mode"
+      }
+    ],
+    "supportPartners": [
+      {
+        "role": "Umpire Partner",
+        "brand": "Wonder Cement",
+        "color": "#ef233c",
+        "subline": "CEMENT"
+      },
+      {
+        "role": "Strategic Timeout Partner",
+        "brand": "ABHISHEK",
+        "color": "#2648a4",
+        "subline": ""
+      },
+      {
+        "role": "Good Times Partner",
+        "brand": "Kingfisher",
+        "color": "#e32322",
+        "subline": "Premium Packaged Drinking Water"
+      },
+      {
+        "role": "Official Broadcaster",
+        "brand": "STAR SPORTS",
+        "color": "#334155",
+        "subline": ""
+      },
+      {
+        "role": "Official Digital Streaming Partner",
+        "brand": "JioHotstar",
+        "color": "#1f2937",
+        "subline": ""
+      }
+    ]
+  }
+}

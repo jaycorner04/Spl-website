@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "request_type": "Player Registration",
+    "requested_by": "Wipro",
+    "subject": "Promote Suraj to Playing XI",
+    "date": "2026-03-24",
+    "priority": "High",
+    "status": "Pending",
+    "notes": "Squad update request submitted after the latest training session."
+  },
+  {
+    "id": 2,
+    "request_type": "Medical Clearance",
+    "requested_by": "Infosys",
+    "subject": "Fitness approval for Viswanadh",
+    "date": "2026-03-24",
+    "priority": "Medium",
+    "status": "Pending",
+    "notes": "Latest physio note is attached for review."
+  },
+  {
+    "id": 3,
+    "request_type": "Budget Request",
+    "requested_by": "Zoho",
+    "subject": "Additional travel budget approval",
+    "date": "2026-03-23",
+    "priority": "Low",
+    "status": "Approved",
+    "notes": "Approved after finance validation."
+  },
+  {
+    "id": 4,
+    "request_type": "Squad Transfer",
+    "requested_by": "HCL",
+    "subject": "Player role review for Prasad",
+    "date": "2026-03-23",
+    "priority": "High",
+    "status": "Escalated",
+    "notes": "Needs commissioner review before next fixture."
+  },
+  {
+    "id": 5,
+    "request_type": "Match Exception",
+    "requested_by": "Reliance",
+    "subject": "Late lineup submission request",
+    "date": "2026-03-22",
+    "priority": "High",
+    "status": "Rejected",
+    "notes": "Rejected because the lock deadline had already passed."
+  }
+]
