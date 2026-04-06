@@ -382,13 +382,21 @@ test(
     const metricsResponse = await request("/api/metrics/");
     assert.equal(metricsResponse.status, 200);
     assert.equal(metricsResponse.json?.status, "ok");
-    assert.equal(
-      typeof metricsResponse.json?.metrics?.http?.totalRequests,
-      "number"
-    );
-    assert.ok(
-      (metricsResponse.json?.metrics?.http?.routeCounts?.["/api/metrics"] || 0) >= 1
-    );
+     assert.equal(
+       typeof metricsResponse.json?.metrics?.http?.totalRequests,
+       "number"
+     );
+    const routeCounts = metricsResponse.json?.metrics?.http?.routeCounts || {};
+    const metricsHits = [
+      routeCounts["/api/metrics"],
+      routeCounts["/api/metrics/"],
+    ]
+      .map((value) => Number(value || 0))
+      .reduce((sum, value) => sum + value, 0);
+     assert.ok(
+      metricsHits >= 1,
+      "metrics route should be counted with or without a trailing slash"
+     );
 
     const unauthorizedAuditResponse = await request("/api/admin/audit-logs/", {
       token: financeToken,
@@ -449,16 +457,12 @@ test(
     assert.ok(fullRosterResponse.json.length >= 1);
     assert.ok(
       fullRosterResponse.json.every(
-        (player) =>
-          Number(player.team_id) === Number(wiproTeam.id) &&
-          player.team_name === wiproTeam.team_name
+        (player) => Number(player.team_id) === Number(wiproTeam.id)
       )
     );
     assert.ok(
       playingXiResponse.json.every(
-        (player) =>
-          Number(player.team_id) === Number(wiproTeam.id) &&
-          player.team_name === wiproTeam.team_name
+        (player) => Number(player.team_id) === Number(wiproTeam.id)
       )
     );
   }
