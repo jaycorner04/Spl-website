@@ -229,9 +229,9 @@ jobs:
             ...Object.entries(envValues).map(
               ([key, value]) => `export ${key}=${shellEscape(value)}`
             ),
-            "BOOTSTRAP_ROOT=/tmp/spl-bootstrap",
-            "BUNDLE_PATH=\"$BOOTSTRAP_ROOT/spl-deploy.zip\"",
-            "EXTRACT_ROOT=\"$BOOTSTRAP_ROOT/bundle\"",
+            "export BOOTSTRAP_ROOT=/tmp/spl-bootstrap",
+            "export BUNDLE_PATH=\"$BOOTSTRAP_ROOT/spl-deploy.zip\"",
+            "export EXTRACT_ROOT=\"$BOOTSTRAP_ROOT/bundle\"",
             "mkdir -p \"$BOOTSTRAP_ROOT\"",
             "rm -rf \"$EXTRACT_ROOT\"",
             "curl -fsSL \"$BUNDLE_URL\" -o \"$BUNDLE_PATH\"",
