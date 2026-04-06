@@ -44,6 +44,7 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SYSTEMCTL_BIN="$(command -v systemctl || true)"
 USE_LOCAL_SQLSERVER="${PROD_USE_LOCAL_SQLSERVER:-true}"
 SQL_CONTAINER_NAME="${PROD_SQL_CONTAINER_NAME:-spl-sqlserver}"
+SQL_IMAGE="${PROD_SQL_IMAGE:-mcr.microsoft.com/azure-sql-edge:latest}"
 SQL_DATA_ROOT="${DEPLOYMENT_ROOT}/sqlserver-data"
 SQL_SA_PASSWORD="${PROD_SQL_SA_PASSWORD:-${PROD_DB_PASSWORD:-}}"
 
@@ -136,7 +137,15 @@ wait_for_sqlserver() {
   local attempt=0
 
   while [[ $attempt -lt 40 ]]; do
-    if docker exec "$SQL_CONTAINER_NAME" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; then
+    if docker exec "$SQL_CONTAINER_NAME" bash -lc '
+      if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -C -Q "SELECT 1"
+      elif [ -x /opt/mssql-tools/bin/sqlcmd ]; then
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -Q "SELECT 1"
+      else
+        exit 1
+      fi
+    ' >/dev/null 2>&1; then
       return
     fi
 
@@ -163,10 +172,25 @@ ensure_local_sqlserver() {
   mkdir -p "$SQL_DATA_ROOT"
 
   if docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
-    echo "Starting existing SQL Server container"
-    docker start "$SQL_CONTAINER_NAME" >/dev/null
+    local existing_image=""
+    existing_image="$(docker inspect --format '{{.Config.Image}}' "$SQL_CONTAINER_NAME" 2>/dev/null || true)"
+    if [[ "$existing_image" != "$SQL_IMAGE" ]]; then
+      echo "Recreating SQL container with image $SQL_IMAGE"
+      docker rm -f "$SQL_CONTAINER_NAME" >/dev/null || true
+      docker run -d \
+        --name "$SQL_CONTAINER_NAME" \
+        --restart unless-stopped \
+        -e ACCEPT_EULA=Y \
+        -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
+        -p 1433:1433 \
+        -v "${SQL_DATA_ROOT}:/var/opt/mssql" \
+        "$SQL_IMAGE" >/dev/null
+    else
+      echo "Starting existing SQL Server container"
+      docker start "$SQL_CONTAINER_NAME" >/dev/null || true
+    fi
   else
-    echo "Creating local SQL Server container"
+    echo "Creating local SQL container from $SQL_IMAGE"
     docker run -d \
       --name "$SQL_CONTAINER_NAME" \
       --restart unless-stopped \
@@ -174,7 +198,7 @@ ensure_local_sqlserver() {
       -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
       -p 1433:1433 \
       -v "${SQL_DATA_ROOT}:/var/opt/mssql" \
-      mcr.microsoft.com/mssql/server:2022-latest >/dev/null
+      "$SQL_IMAGE" >/dev/null
   fi
 
   echo "Waiting for local SQL Server to accept connections"
@@ -182,12 +206,15 @@ ensure_local_sqlserver() {
 
   if [[ -n "${PROD_DB_USER:-}" && "${PROD_DB_USER}" != "sa" ]]; then
     echo "Ensuring application SQL login exists"
-    docker exec "$SQL_CONTAINER_NAME" /opt/mssql-tools18/bin/sqlcmd \
-      -S localhost \
-      -U sa \
-      -P "$SQL_SA_PASSWORD" \
-      -C \
-      -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = N'${PROD_DB_USER}') BEGIN CREATE LOGIN [${PROD_DB_USER}] WITH PASSWORD = N'${PROD_DB_PASSWORD}'; ALTER SERVER ROLE sysadmin ADD MEMBER [${PROD_DB_USER}]; END"
+    docker exec "$SQL_CONTAINER_NAME" bash -lc '
+      if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -C -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = N'''"${PROD_DB_USER}"''') BEGIN CREATE LOGIN ['"${PROD_DB_USER}"'] WITH PASSWORD = N'''"${PROD_DB_PASSWORD}"'''; ALTER SERVER ROLE sysadmin ADD MEMBER ['"${PROD_DB_USER}"']; END"
+      elif [ -x /opt/mssql-tools/bin/sqlcmd ]; then
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = N'''"${PROD_DB_USER}"''') BEGIN CREATE LOGIN ['"${PROD_DB_USER}"'] WITH PASSWORD = N'''"${PROD_DB_PASSWORD}"'''; ALTER SERVER ROLE sysadmin ADD MEMBER ['"${PROD_DB_USER}"']; END"
+      else
+        exit 1
+      fi
+    '
   fi
 }
 
