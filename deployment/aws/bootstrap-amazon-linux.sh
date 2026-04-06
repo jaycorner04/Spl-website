@@ -43,10 +43,11 @@ if [[ -z "$SYSTEMCTL_BIN" ]]; then
 fi
 
 echo "Installing Linux deployment dependencies"
-dnf install -y amazon-ssm-agent nodejs npm nginx git unzip curl-minimal python3 rsync
+dnf install -y amazon-ssm-agent nodejs npm nginx git unzip curl-minimal python3 rsync docker
 
-echo "Enabling Amazon SSM Agent and Nginx"
+echo "Enabling Amazon SSM Agent, Docker, and Nginx"
 "$SYSTEMCTL_BIN" enable --now amazon-ssm-agent
+"$SYSTEMCTL_BIN" enable --now docker
 "$SYSTEMCTL_BIN" enable --now nginx
 
 echo "Creating deployment directories"

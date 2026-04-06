@@ -42,18 +42,30 @@ LOGS_ROOT="${DEPLOYMENT_ROOT}/logs"
 FRONTEND_ROOT="${APP_ROOT}/spl-frontend"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SYSTEMCTL_BIN="$(command -v systemctl || true)"
+USE_LOCAL_SQLSERVER="${PROD_USE_LOCAL_SQLSERVER:-true}"
+SQL_CONTAINER_NAME="${PROD_SQL_CONTAINER_NAME:-spl-sqlserver}"
+SQL_DATA_ROOT="${DEPLOYMENT_ROOT}/sqlserver-data"
+SQL_SA_PASSWORD="${PROD_SQL_SA_PASSWORD:-${PROD_DB_PASSWORD:-}}"
 
 if [[ -z "$SYSTEMCTL_BIN" && -x "/usr/bin/systemctl" ]]; then
   SYSTEMCTL_BIN="/usr/bin/systemctl"
 fi
 
 write_backend_env() {
+  local db_server="${PROD_DB_SERVER:-}"
+  local db_port="${PROD_DB_PORT:-1433}"
+
+  if [[ "${USE_LOCAL_SQLSERVER,,}" == "true" ]]; then
+    db_server="127.0.0.1"
+    db_port="1433"
+  fi
+
   cat > "${APP_ROOT}/.env.production.local" <<EOF
 NODE_ENV=production
 PORT=${PROD_PORT:-4000}
 HOST=${PROD_HOST:-0.0.0.0}
-DB_SERVER=${PROD_DB_SERVER:-}
-DB_PORT=${PROD_DB_PORT:-1433}
+DB_SERVER=${db_server}
+DB_PORT=${db_port}
 DB_NAME=${PROD_DB_NAME:-SPLSqlServer}
 DB_BOOTSTRAP_DATABASE=${PROD_DB_BOOTSTRAP_DATABASE:-master}
 DB_USER=${PROD_DB_USER:-}
@@ -104,6 +116,81 @@ EOF
   "$SYSTEMCTL_BIN" enable "$SERVICE_NAME"
 }
 
+ensure_docker() {
+  if command -v docker >/dev/null 2>&1; then
+    if [[ -n "$SYSTEMCTL_BIN" ]]; then
+      "$SYSTEMCTL_BIN" enable --now docker
+    fi
+    return
+  fi
+
+  echo "Installing Docker for local SQL Server"
+  dnf install -y docker
+
+  if [[ -n "$SYSTEMCTL_BIN" ]]; then
+    "$SYSTEMCTL_BIN" enable --now docker
+  fi
+}
+
+wait_for_sqlserver() {
+  local attempt=0
+
+  while [[ $attempt -lt 40 ]]; do
+    if docker exec "$SQL_CONTAINER_NAME" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; then
+      return
+    fi
+
+    attempt=$((attempt + 1))
+    sleep 5
+  done
+
+  echo "SQL Server container did not become ready in time." >&2
+  docker logs "$SQL_CONTAINER_NAME" || true
+  exit 1
+}
+
+ensure_local_sqlserver() {
+  if [[ "${USE_LOCAL_SQLSERVER,,}" != "true" ]]; then
+    return
+  fi
+
+  if [[ -z "$SQL_SA_PASSWORD" ]]; then
+    echo "PROD_DB_PASSWORD or PROD_SQL_SA_PASSWORD is required for local SQL Server." >&2
+    exit 1
+  fi
+
+  ensure_docker
+  mkdir -p "$SQL_DATA_ROOT"
+
+  if docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
+    echo "Starting existing SQL Server container"
+    docker start "$SQL_CONTAINER_NAME" >/dev/null
+  else
+    echo "Creating local SQL Server container"
+    docker run -d \
+      --name "$SQL_CONTAINER_NAME" \
+      --restart unless-stopped \
+      -e ACCEPT_EULA=Y \
+      -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
+      -p 1433:1433 \
+      -v "${SQL_DATA_ROOT}:/var/opt/mssql" \
+      mcr.microsoft.com/mssql/server:2022-latest >/dev/null
+  fi
+
+  echo "Waiting for local SQL Server to accept connections"
+  wait_for_sqlserver
+
+  if [[ -n "${PROD_DB_USER:-}" && "${PROD_DB_USER}" != "sa" ]]; then
+    echo "Ensuring application SQL login exists"
+    docker exec "$SQL_CONTAINER_NAME" /opt/mssql-tools18/bin/sqlcmd \
+      -S localhost \
+      -U sa \
+      -P "$SQL_SA_PASSWORD" \
+      -C \
+      -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = N'${PROD_DB_USER}') BEGIN CREATE LOGIN [${PROD_DB_USER}] WITH PASSWORD = N'${PROD_DB_PASSWORD}'; ALTER SERVER ROLE sysadmin ADD MEMBER [${PROD_DB_USER}]; END"
+  fi
+}
+
 echo "Preparing deployment directories"
 mkdir -p "$APP_ROOT" "$LOGS_ROOT"
 
@@ -132,6 +219,9 @@ chown -R ec2-user:ec2-user "$DEPLOYMENT_ROOT"
 echo "Writing production environment files"
 write_backend_env
 write_frontend_env
+
+echo "Preparing production database"
+ensure_local_sqlserver
 
 pushd "$APP_ROOT" >/dev/null
 
