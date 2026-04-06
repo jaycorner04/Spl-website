@@ -20,9 +20,9 @@ export default function BackendReconnectBanner() {
               Backend connection lost
             </p>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Start the app with <span className="font-mono text-[13px]">npm run dev</span> inside the
-              <span className="font-mono text-[13px]"> spl-frontend</span> folder, or use
-              <span className="font-mono text-[13px]"> npm run frontend</span> from the project root.
+              Start the app with <span className="font-mono text-[13px]">npm run dev</span> from the
+              project root, or run the same command inside the
+              <span className="font-mono text-[13px]"> spl-frontend</span> folder.
             </p>
             <p className="mt-2 text-xs text-slate-500">
               The app will keep retrying automatically every 15 seconds.

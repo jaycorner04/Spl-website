@@ -6,6 +6,15 @@ const projectRoot = path.resolve(__dirname, "..");
 const frontendRoot = path.join(projectRoot, "spl-frontend");
 const shutdownSignals = ["SIGINT", "SIGTERM", "SIGHUP"];
 const autoCloseMs = Number.parseInt(process.env.DEV_AUTOCLOSE_MS || "", 10);
+const configuredBackendStartupTimeoutMs = Number.parseInt(
+  process.env.DEV_BACKEND_STARTUP_TIMEOUT_MS || "",
+  10
+);
+const backendStartupTimeoutMs =
+  Number.isInteger(configuredBackendStartupTimeoutMs) &&
+  configuredBackendStartupTimeoutMs > 0
+    ? configuredBackendStartupTimeoutMs
+    : 240000;
 
 let frontendProcess = null;
 let backendProcess = null;
@@ -165,7 +174,10 @@ async function main() {
       shutdown(code || 1);
     });
 
-    health = await waitForBackend("http://127.0.0.1:4000/api/health");
+    health = await waitForBackend(
+      "http://127.0.0.1:4000/api/health",
+      backendStartupTimeoutMs
+    );
     const apiIndex = await getBackendApiIndex();
 
     if (!backendSupportsAuth(apiIndex)) {

@@ -36,12 +36,7 @@ export default function HomePage() {
   } = useTopPerformers();
   const liveAnnouncements = getArrayOrEmpty(homeContent?.announcements);
   const announcementItems = liveAnnouncements;
-  const liveTopPerformerItems =
-    topPerformers.length > 0
-      ? topPerformers
-      : getArrayOrEmpty(homeContent?.topPerformers);
-  const topPerformerItems =
-    liveTopPerformerItems.length > 0 ? liveTopPerformerItems : [];
+  const topPerformerItems = topPerformers;
   const closeAnnouncementPopup = useCallback(() => {
     setIsAnnouncementPopupOpen(false);
   }, []);
@@ -176,14 +171,11 @@ export default function HomePage() {
         </div>
 
         <div id="announcements">
-          <AnnouncementCardSection items={announcementItems} allowFallback={false} />
+          <AnnouncementCardSection items={announcementItems} />
         </div>
 
         <div id="latest-news">
-          <LatestNewsSection
-            items={getArrayOrEmpty(homeContent?.latestNews)}
-            allowFallback={false}
-          />
+          <LatestNewsSection items={getArrayOrEmpty(homeContent?.latestNews)} />
         </div>
 
         <div id="franchises">
@@ -191,11 +183,11 @@ export default function HomePage() {
         </div>
 
         <div id="points-table">
-          <PointsTableSection standingsData={homeContent?.standings} allowFallback={false} />
+          <PointsTableSection standingsData={homeContent?.standings} />
         </div>
 
         <div id="top-performers">
-          <TopPerformersSection items={topPerformerItems} allowFallback={false} />
+          <TopPerformersSection items={topPerformerItems} />
           {topPerformersError ? (
             <p className="spl-home-shell pb-2 text-center text-xs text-slate-500">
               Top performer scores are temporarily unavailable right now.
@@ -208,7 +200,7 @@ export default function HomePage() {
         </div>
 
         <div id="sponsors">
-          <SponsorSection sponsorsData={homeContent?.sponsors} allowFallback={false} />
+          <SponsorSection sponsorsData={homeContent?.sponsors} />
         </div>
 
         <SeasonStatsBar />

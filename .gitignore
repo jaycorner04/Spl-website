@@ -13,3 +13,7 @@ spl-frontend/.env.production.local
 api-start.log
 test-artifacts/
 server-media/
+python_backend/__pycache__/
+*.pyc
+python-*.log
+.tmp-live-dev.*.log

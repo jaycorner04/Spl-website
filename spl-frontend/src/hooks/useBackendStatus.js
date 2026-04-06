@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { API_BASE_URL } from "../api/axiosConfig";
+import { buildApiUrl } from "../api/axiosConfig";
 
 const HEALTH_CHECK_INTERVAL_MS = 15000;
 
 function buildHealthCheckUrl() {
-  const normalizedBase = String(API_BASE_URL || "").replace(/\/+$/, "");
-  return normalizedBase ? `${normalizedBase}/api/health/` : "/api/health/";
+  return buildApiUrl("/api/health/");
 }
 
 export default function useBackendStatus() {

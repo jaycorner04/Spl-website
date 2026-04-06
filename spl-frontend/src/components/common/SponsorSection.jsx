@@ -6,69 +6,6 @@ const sponsorImageMap = {
   "raynx-systems-title-sponsor.jpg": raynxSystemsTitleSponsor,
 };
 
-const defaultPremierPartners = [
-  {
-    name: "Angel One",
-    render: () => (
-      <div className="text-[1.55rem] font-black tracking-[-0.05em] text-[#3557ff] sm:text-[2.8rem]">
-        Angel<span className="font-bold">One</span>
-      </div>
-    ),
-  },
-  {
-    name: "RuPay",
-    render: () => (
-      <div className="text-[1.55rem] font-black italic tracking-[-0.05em] text-[#2c2f77] sm:text-[2.7rem]">
-        RuPay
-      </div>
-    ),
-  },
-  {
-    name: "Google AI Mode",
-    render: () => (
-      <div className="flex items-center gap-3">
-        <SiGoogle className="h-8 w-8 text-black sm:h-12 sm:w-12" />
-        <div className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_4px_14px_rgba(15,23,42,0.08)] sm:text-base">
-          AI Mode
-        </div>
-      </div>
-    ),
-  },
-];
-
-const defaultSupportPartners = [
-  {
-    role: "Umpire Partner",
-    brand: "Wonder Cement",
-    color: "#ef233c",
-    subline: "CEMENT",
-  },
-  {
-    role: "Strategic Timeout Partner",
-    brand: "ABHISHEK",
-    color: "#2648a4",
-    subline: "",
-  },
-  {
-    role: "Good Times Partner",
-    brand: "Kingfisher",
-    color: "#e32322",
-    subline: "Premium Packaged Drinking Water",
-  },
-  {
-    role: "Official Broadcaster",
-    brand: "STAR SPORTS",
-    color: "#334155",
-    subline: "",
-  },
-  {
-    role: "Official Digital Streaming Partner",
-    brand: "JioHotstar",
-    color: "#1f2937",
-    subline: "",
-  },
-];
-
 const premierPartnerRenderMap = {
   "Angel One": () => (
     <div className="text-[1.55rem] font-black tracking-[-0.05em] text-[#3557ff] sm:text-[2.8rem]">
@@ -90,6 +27,20 @@ const premierPartnerRenderMap = {
   ),
 };
 
+function renderPremierPartner(partnerName = "") {
+  const namedRenderer = premierPartnerRenderMap[partnerName];
+
+  if (namedRenderer) {
+    return namedRenderer();
+  }
+
+  return (
+    <div className="rounded-full border border-slate-300 bg-white px-5 py-3 text-center text-lg font-black tracking-[-0.04em] text-slate-800 shadow-[0_4px_14px_rgba(15,23,42,0.08)] sm:text-[1.7rem]">
+      {partnerName || "Premier Partner"}
+    </div>
+  );
+}
+
 function CornerStreak({ className, color, rotate }) {
   return (
     <div className={`absolute ${className}`} style={{ transform: rotate }}>
@@ -105,87 +56,52 @@ function CornerStreak({ className, color, rotate }) {
 
 function normalizePremierPartners(items) {
   if (!Array.isArray(items)) {
-    return defaultPremierPartners;
+    return [];
   }
 
-  return items.map((partner, index) => {
-    const fallback = defaultPremierPartners[index % defaultPremierPartners.length];
-    const name = partner.name || fallback.name;
-
-    return {
-      name,
-      render: premierPartnerRenderMap[name] || fallback.render,
-    };
-  });
+  return items
+    .map((partner) => ({
+      name: String(partner?.name || "").trim(),
+    }))
+    .filter((partner) => partner.name);
 }
 
 function normalizeSupportPartners(items) {
   if (!Array.isArray(items)) {
-    return defaultSupportPartners;
+    return [];
   }
 
-  return items.map((partner, index) => {
-    const fallback = defaultSupportPartners[index % defaultSupportPartners.length];
-
-    return {
-      role: partner.role || fallback.role,
-      brand: partner.brand || fallback.brand,
-      color: partner.color || fallback.color,
-      subline: partner.subline || fallback.subline,
-    };
-  });
+  return items
+    .map((partner) => ({
+      role: String(partner?.role || "").trim(),
+      brand: String(partner?.brand || "").trim(),
+      color: String(partner?.color || "").trim() || "#334155",
+      subline: String(partner?.subline || "").trim(),
+    }))
+    .filter((partner) => partner.role && partner.brand);
 }
 
-export default function SponsorSection({ sponsorsData, allowFallback = true }) {
+export default function SponsorSection({ sponsorsData }) {
   const hasExplicitTitleSponsor =
     sponsorsData &&
     Object.prototype.hasOwnProperty.call(sponsorsData, "titleSponsor");
-  const hasSponsorContent = Boolean(
-    sponsorsData &&
-      (
-        sponsorsData.titleSponsor ||
-        (Array.isArray(sponsorsData.premierPartners) &&
-          sponsorsData.premierPartners.length > 0) ||
-        (Array.isArray(sponsorsData.supportPartners) &&
-          sponsorsData.supportPartners.length > 0)
-      )
-  );
   const titleSponsor = hasExplicitTitleSponsor
     ? sponsorsData?.titleSponsor
-    : allowFallback
-      ? {
-          label: "Title Sponsor",
-          name: "Raynx Systems Private Limited",
-          imageFile: "raynx-systems-title-sponsor.jpg",
-        }
-      : null;
+    : null;
   const titleSponsorLabel = titleSponsor?.label || "Title Sponsor";
-  const titleSponsorName =
-    titleSponsor?.name || "Raynx Systems Private Limited";
+  const titleSponsorName = titleSponsor?.name || "";
   const titleSponsorImage = titleSponsor?.imageFile
     ? sponsorImageMap[titleSponsor.imageFile] ||
       getMediaUrl(titleSponsor.imageFile)
-    : allowFallback
-      ? raynxSystemsTitleSponsor
-      : "";
+    : "";
   const livePremierPartners = Array.isArray(sponsorsData?.premierPartners)
     ? sponsorsData.premierPartners
     : [];
   const liveSupportPartners = Array.isArray(sponsorsData?.supportPartners)
     ? sponsorsData.supportPartners
     : [];
-  const premierPartners =
-    livePremierPartners.length > 0
-      ? normalizePremierPartners(livePremierPartners)
-      : allowFallback && !hasSponsorContent
-        ? normalizePremierPartners()
-      : [];
-  const supportPartners =
-    liveSupportPartners.length > 0
-      ? normalizeSupportPartners(liveSupportPartners)
-      : allowFallback && !hasSponsorContent
-        ? normalizeSupportPartners()
-      : [];
+  const premierPartners = normalizePremierPartners(livePremierPartners);
+  const supportPartners = normalizeSupportPartners(liveSupportPartners);
 
   return (
     <section className="spl-home-shell w-full py-10 sm:py-14">
@@ -209,15 +125,26 @@ export default function SponsorSection({ sponsorsData, allowFallback = true }) {
                 <p className="font-condensed text-xs font-bold uppercase tracking-[0.2em] text-slate-900 sm:text-sm">
                   {titleSponsorLabel}
                 </p>
-                <div className="mt-6 flex justify-center">
-                  <img
-                    src={titleSponsorImage}
-                    alt={titleSponsorName}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-auto w-full max-w-[420px] object-contain sm:max-w-[520px]"
-                  />
-                </div>
+                {titleSponsorImage ? (
+                  <div className="mt-6 flex justify-center">
+                    <img
+                      src={titleSponsorImage}
+                      alt={titleSponsorName}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-auto w-full max-w-[420px] object-contain sm:max-w-[520px]"
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-[24px] border border-dashed border-slate-300 bg-white px-8 py-10 text-center shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+                    <p className="font-condensed text-xs uppercase tracking-[0.18em] text-slate-500">
+                      {titleSponsorLabel}
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold text-slate-900">
+                      {titleSponsorName}
+                    </p>
+                  </div>
+                )}
               </>
             ) : null}
 
@@ -232,7 +159,7 @@ export default function SponsorSection({ sponsorsData, allowFallback = true }) {
                 <div className="mt-7 flex flex-wrap items-center justify-center gap-6 sm:gap-12">
                   {premierPartners.map((partner) => (
                     <div key={partner.name} className="flex items-center justify-center">
-                      {partner.render()}
+                      {renderPremierPartner(partner.name)}
                     </div>
                   ))}
                 </div>

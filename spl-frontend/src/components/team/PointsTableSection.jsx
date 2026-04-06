@@ -33,247 +33,57 @@ const logoComponentMap = {
   zoho: SiZoho,
 };
 
-const defaultStandings = [
-  {
-    pos: 1,
-    team: "Wipro",
-    brandIcon: SiWipro,
-    logoColor: "#173a67",
-    short: "WI",
-    logo: "",
-    played: 8,
-    won: 6,
-    lost: 2,
-    nrr: "+1.243",
-    pts: 12,
-  },
-  {
-    pos: 2,
-    team: "Infosys",
-    brandIcon: SiInfosys,
-    logoColor: "#0072ce",
-    short: "IN",
-    logo: "",
-    played: 8,
-    won: 5,
-    lost: 3,
-    nrr: "+0.812",
-    pts: 10,
-  },
-  {
-    pos: 3,
-    team: "HCL",
-    brandIcon: SiHcl,
-    logoColor: "#0f6caa",
-    short: "HC",
-    logo: "",
-    played: 8,
-    won: 5,
-    lost: 3,
-    nrr: "+0.411",
-    pts: 10,
-  },
-  {
-    pos: 4,
-    team: "TCS",
-    brandIcon: SiTcs,
-    logoColor: "#23262d",
-    short: "TC",
-    logo: "",
-    played: 8,
-    won: 4,
-    lost: 4,
-    nrr: "-0.091",
-    pts: 8,
-  },
-  {
-    pos: 5,
-    team: "Zoho",
-    brandIcon: SiZoho,
-    logoColor: "#e42527",
-    short: "ZO",
-    logo: "",
-    played: 8,
-    won: 4,
-    lost: 4,
-    nrr: "-0.233",
-    pts: 8,
-  },
-  {
-    pos: 6,
-    team: "Reliance",
-    brandIcon: SiRelianceindustrieslimited,
-    logoColor: "#c6a04d",
-    short: "RE",
-    logo: "",
-    played: 8,
-    won: 3,
-    lost: 5,
-    nrr: "-0.517",
-    pts: 6,
-  },
-  {
-    pos: 7,
-    team: "Paytm",
-    brandIcon: SiPaytm,
-    logoColor: "#00baf2",
-    short: "PA",
-    logo: "",
-    played: 8,
-    won: 3,
-    lost: 5,
-    nrr: "-0.602",
-    pts: 6,
-  },
-  {
-    pos: 8,
-    team: "Mahindra",
-    brandIcon: SiMahindra,
-    logoColor: "#d71920",
-    short: "MA",
-    logo: "",
-    played: 8,
-    won: 2,
-    lost: 6,
-    nrr: "-0.844",
-    pts: 4,
-  },
-  {
-    pos: 9,
-    team: "Flipkart",
-    brandIcon: SiFlipkart,
-    logoColor: "#2874f0",
-    short: "FL",
-    logo: "",
-    played: 8,
-    won: 2,
-    lost: 6,
-    nrr: "-1.011",
-    pts: 4,
-  },
-  {
-    pos: 10,
-    team: "Tata",
-    brandIcon: SiTata,
-    logoColor: "#2c4a9a",
-    short: "TA",
-    logo: "",
-    played: 8,
-    won: 1,
-    lost: 7,
-    nrr: "-1.244",
-    pts: 2,
-  },
-];
-
-const defaultPlayoffStandings = [
-  {
-    seed: "Q1",
-    team: "Wipro",
-    brandIcon: SiWipro,
-    logoColor: "#173a67",
-    short: "WI",
-    logo: "",
-    stage: "Qualifier 1",
-    opponent: "Infosys",
-    status: "Awaiting Match",
-  },
-  {
-    seed: "Q2",
-    team: "Infosys",
-    brandIcon: SiInfosys,
-    logoColor: "#0072ce",
-    short: "IN",
-    logo: "",
-    stage: "Qualifier 1",
-    opponent: "Wipro",
-    status: "Awaiting Match",
-  },
-  {
-    seed: "E1",
-    team: "HCL",
-    brandIcon: SiHcl,
-    logoColor: "#0f6caa",
-    short: "HC",
-    logo: "",
-    stage: "Eliminator",
-    opponent: "TCS",
-    status: "Knockout Match",
-  },
-  {
-    seed: "E2",
-    team: "TCS",
-    brandIcon: SiTcs,
-    logoColor: "#23262d",
-    short: "TC",
-    logo: "",
-    stage: "Eliminator",
-    opponent: "HCL",
-    status: "Knockout Match",
-  },
-];
-
 function normalizeLogoKey(value = "") {
   return String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function resolveBrandIcon(logoKey, teamName, fallbackBrandIcon) {
+function resolveBrandIcon(logoKey, teamName) {
   const directKey = normalizeLogoKey(logoKey);
   const teamKey = normalizeLogoKey(teamName);
 
   return (
     logoComponentMap[directKey] ||
     logoComponentMap[teamKey] ||
-    fallbackBrandIcon ||
     null
   );
 }
 
-function buildTeamIdentity(teamName, linkedTeam, fallback = {}) {
+function buildTeamIdentity(teamName, linkedTeam) {
   const brandReference = findTeamBrandReference(teamName);
 
   return {
     brandIcon:
       brandReference?.brandIcon ||
       linkedTeam?.brandIcon ||
-      fallback.brandIcon ||
       null,
     logoColor:
       brandReference?.logoColor ||
       getFallbackColor(linkedTeam?.primary_color) ||
-      fallback.logoColor ||
       "#334155",
-    logo: getMediaUrl(linkedTeam?.logo || fallback.logo || ""),
-    short: getShortName(teamName || linkedTeam?.team_name || fallback.team || "TM"),
+    logo: getMediaUrl(linkedTeam?.logo || ""),
+    short: getShortName(teamName || linkedTeam?.team_name || "TM"),
   };
 }
 
-function mergeSeasonRows(rows, teams, allowFallback = true) {
-  const fallbackRows = defaultStandings;
-  const sourceRows =
-    Array.isArray(rows) && rows.length > 0
-      ? rows
-      : allowFallback
-        ? fallbackRows
-        : [];
+function mergeSeasonRows(rows, teams) {
+  const sourceRows = Array.isArray(rows) ? rows : [];
   const teamsByName = new Map(
     (teams || []).map((team) => [String(team.team_name || "").toLowerCase(), team])
   );
 
   const normalizedRows = sourceRows.map((row, index) => {
-    const fallback = fallbackRows[index % fallbackRows.length];
-    const teamName = row.team || fallback.team;
+    const teamName = row.team || "SPL Franchise";
     const linkedTeam = teamsByName.get(String(teamName).toLowerCase());
-    const identity = buildTeamIdentity(teamName, linkedTeam, fallback);
+    const identity = buildTeamIdentity(teamName, linkedTeam);
 
     return {
-      pos: Number(row.pos ?? fallback.pos ?? index + 1),
+      pos: Number(row.pos ?? index + 1),
       team: teamName,
-      played: Number(row.played ?? fallback.played ?? 0),
-      won: Number(row.won ?? fallback.won ?? 0),
-      lost: Number(row.lost ?? fallback.lost ?? 0),
-      nrr: String(row.nrr ?? fallback.nrr ?? "0.000"),
-      pts: Number(row.pts ?? fallback.pts ?? 0),
+      played: Number(row.played ?? 0),
+      won: Number(row.won ?? 0),
+      lost: Number(row.lost ?? 0),
+      nrr: String(row.nrr ?? "0.000"),
+      pts: Number(row.pts ?? 0),
       ...identity,
     };
   });
@@ -304,30 +114,25 @@ function mergeSeasonRows(rows, teams, allowFallback = true) {
   }));
 }
 
-function normalizePlayoffRows(rows, allowFallback = true) {
+function normalizePlayoffRows(rows) {
   if (!Array.isArray(rows) || rows.length === 0) {
-    if (!allowFallback) {
-      return [];
-    }
-
-    return defaultPlayoffStandings;
+    return [];
   }
 
   return rows.map((row, index) => {
-    const fallback = defaultPlayoffStandings[index % defaultPlayoffStandings.length];
     const identity = {
-      brandIcon: resolveBrandIcon(row.logoKey, row.team, fallback.brandIcon),
-      logoColor: row.logoColor || fallback.logoColor,
-      logo: fallback.logo || "",
-      short: getShortName(row.team || fallback.team),
+      brandIcon: resolveBrandIcon(row.logoKey, row.team),
+      logoColor: row.logoColor || "#334155",
+      logo: "",
+      short: getShortName(row.team || "TM"),
     };
 
     return {
-      seed: row.seed || fallback.seed,
-      team: row.team || fallback.team,
-      stage: row.stage || fallback.stage,
-      opponent: row.opponent || fallback.opponent,
-      status: row.status || fallback.status,
+      seed: row.seed || `P${index + 1}`,
+      team: row.team || "SPL Franchise",
+      stage: row.stage || "Playoff",
+      opponent: row.opponent || "TBD",
+      status: row.status || "Pending",
       ...identity,
     };
   });
@@ -364,10 +169,7 @@ function TeamMark({ row, sizeClass = "h-6 w-6", wrapperClass = "h-10 w-10" }) {
   );
 }
 
-export default function PointsTableSection({
-  standingsData,
-  allowFallback = true,
-}) {
+export default function PointsTableSection({ standingsData }) {
   const [activeView, setActiveView] = useState("season");
   const { teams } = useTeams();
   const { franchises } = useFranchises();
@@ -383,15 +185,8 @@ export default function PointsTableSection({
     const franchiseId = String(team.franchise_id || "");
     return !franchiseId || approvedFranchiseIds.has(franchiseId);
   });
-  const standings = mergeSeasonRows(
-    standingsData?.season,
-    publicTeams,
-    allowFallback
-  );
-  const playoffStandings = normalizePlayoffRows(
-    standingsData?.playoffs,
-    allowFallback
-  );
+  const standings = mergeSeasonRows(standingsData?.season, publicTeams);
+  const playoffStandings = normalizePlayoffRows(standingsData?.playoffs);
   const isPlayoffView = activeView === "playoffs";
   const displayedRows = isPlayoffView ? playoffStandings : standings;
 

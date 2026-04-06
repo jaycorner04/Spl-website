@@ -1,4 +1,4 @@
-const { getProjectData, listCollection } = require("./db");
+const { listCollection } = require("./db");
 
 const TOP_PERFORMER_ACCENTS = [
   "from-yellow-500/35 via-orange-400/10 to-transparent",
@@ -150,16 +150,13 @@ function buildPerformerStats(player, performance) {
 }
 
 async function getTopPerformers(limit = 5) {
-  const [players, performances, homeContent] = await Promise.all([
+  const [players, performances] = await Promise.all([
     listCollection("players"),
     listCollection("performances"),
-    getProjectData("home"),
   ]);
 
   if (!Array.isArray(performances) || performances.length === 0) {
-    return Array.isArray(homeContent?.topPerformers)
-      ? homeContent.topPerformers.slice(0, limit)
-      : [];
+    return [];
   }
 
   const playersById = new Map(

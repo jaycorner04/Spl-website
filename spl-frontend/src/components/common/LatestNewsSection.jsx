@@ -1,44 +1,5 @@
-const defaultNewsItems = [
-  {
-    title: "Wipro and Infosys set for a season-defining clash in Hyderabad",
-    category: "Match Preview",
-    date: "Apr 4, 2026",
-    excerpt:
-      "The current table leaders meet under lights as both sides push for playoff control.",
-  },
-  {
-    title: "Abhishek and Viswanadh continue to lead the SPL performer charts",
-    category: "Player Spotlight",
-    date: "Apr 3, 2026",
-    excerpt:
-      "Batting brilliance from Wipro and all-round impact from Infosys keep both stars ahead of the field.",
-  },
-  {
-    title: "HCL and TCS finalise preparations for a crucial Bengaluru fixture",
-    category: "League Update",
-    date: "Apr 2, 2026",
-    excerpt:
-      "Both teams are level on points and will treat the next round as a direct playoff-position battle.",
-  },
-  {
-    title: "Paytm's recent win over Mahindra reshapes the mid-table race",
-    category: "Match Report",
-    date: "Apr 1, 2026",
-    excerpt:
-      "A disciplined defence of 172/5 tightened the race for the final qualification spots.",
-  },
-];
-
-export default function LatestNewsSection({
-  items = defaultNewsItems,
-  allowFallback = true,
-}) {
-  const hasLiveItems = Array.isArray(items) && items.length > 0;
-  const newsItems = hasLiveItems
-    ? items
-    : allowFallback
-      ? defaultNewsItems
-      : [];
+export default function LatestNewsSection({ items = [] }) {
+  const newsItems = Array.isArray(items) ? items : [];
   const scrollingNews = [...newsItems, ...newsItems];
 
   return (

@@ -1,82 +1,13 @@
-import { useState } from "react";
-import abhishekImage from "../../assets/players/raynx-rockets/abhishek-optimized.png";
-import sandeepImage from "../../assets/players/raynx-rockets/sandeep-optimized.png";
-import viswanadhImage from "../../assets/players/raynx-rockets/viswanadh.png";
+import { useMemo, useState } from "react";
 import RouteAction from "../common/RouteAction";
 import { getMediaUrl } from "../../utils/media";
 
-const playerImageMap = {
-  abhishek: abhishekImage,
-  sandeep: sandeepImage,
-  viswanadh: viswanadhImage,
-};
-
-const defaultTopPerformers = [
-  {
-    href: "/players",
-    name: "Viswanadh",
-    role: "All-Rounder",
-    team: "Infosys",
-    points: 243,
-    image: viswanadhImage,
-    accent: "from-yellow-500/35 via-orange-400/10 to-transparent",
-    statLine: "243 PTS",
-    statLabel: "Top All-Rounder",
-    tableHeaders: ["M", "Runs", "Wkts", "SR", "Eco"],
-    tableValues: ["5", "103", "3", "148.2", "6.4"],
-  },
-  {
-    href: "/players",
-    name: "Abhishek",
-    role: "Batsman",
-    team: "Wipro",
-    points: 228,
-    image: abhishekImage,
-    accent: "from-cyan-500/35 via-sky-400/10 to-transparent",
-    statLine: "228 RUNS",
-    statLabel: "Top Batter",
-    tableHeaders: ["M", "Runs", "Avg", "SR", "4/6"],
-    tableValues: ["5", "228", "76.00", "145.5", "27/14"],
-  },
-  {
-    href: "/players",
-    name: "Prasad",
-    role: "Bowler",
-    team: "HCL",
-    points: 214,
-    image: null,
-    accent: "from-emerald-500/35 via-teal-400/10 to-transparent",
-    statLine: "4/21",
-    statLabel: "Top Bowler",
-    tableHeaders: ["M", "Wkts", "Eco", "BBI", "Dot%"],
-    tableValues: ["5", "4", "5.25", "4/21", "58"],
-  },
-  {
-    href: "/players",
-    name: "Sandeep",
-    role: "All-Rounder",
-    team: "Reliance",
-    points: 201,
-    image: sandeepImage,
-    accent: "from-rose-500/35 via-red-400/10 to-transparent",
-    statLine: "201 PTS",
-    statLabel: "Top All-Rounder",
-    tableHeaders: ["M", "Runs", "Wkts", "SR", "Eco"],
-    tableValues: ["5", "111", "2", "139.4", "6.9"],
-  },
-  {
-    href: "/players",
-    name: "Santhosh",
-    role: "Batsman",
-    team: "Zoho",
-    points: 189,
-    image: null,
-    accent: "from-violet-500/35 via-fuchsia-400/10 to-transparent",
-    statLine: "189 RUNS",
-    statLabel: "Top Batter",
-    tableHeaders: ["M", "Runs", "Avg", "SR", "4/6"],
-    tableValues: ["5", "189", "63.00", "142.8", "20/9"],
-  },
+const TOP_PERFORMER_ACCENTS = [
+  "from-yellow-500/35 via-orange-400/10 to-transparent",
+  "from-cyan-500/35 via-sky-400/10 to-transparent",
+  "from-emerald-500/35 via-teal-400/10 to-transparent",
+  "from-rose-500/35 via-red-400/10 to-transparent",
+  "from-violet-500/35 via-fuchsia-400/10 to-transparent",
 ];
 
 function normalizeTopPerformers(items) {
@@ -85,46 +16,40 @@ function normalizeTopPerformers(items) {
   }
 
   return items.map((player, index) => {
-    const fallback = defaultTopPerformers[index % defaultTopPerformers.length];
-    const resolvedImage =
-      getMediaUrl(player.image || player.photo || "") ||
-      playerImageMap[player.playerKey] ||
-      null;
+    const resolvedImage = getMediaUrl(player.image || player.photo || "") || null;
+    const safeTableHeaders =
+      Array.isArray(player.tableHeaders) && player.tableHeaders.length > 0
+        ? player.tableHeaders
+        : ["M", "Runs", "Wkts", "SR", "Eco"];
+    const safeTableValues =
+      Array.isArray(player.tableValues) && player.tableValues.length > 0
+        ? player.tableValues
+        : ["0", "0", "0", "0.0", "0.0"];
 
     return {
       href: player.href || "/players",
-      name: player.name || fallback.name,
-      role: player.role || fallback.role,
-      team: player.team || fallback.team,
-      points: player.points ?? fallback.points,
+      name: player.name || "SPL Player",
+      role: player.role || "Player",
+      team: player.team || "SPL Franchise",
+      points: Number(player.points ?? 0),
       image: resolvedImage,
-      accent: player.accent || fallback.accent,
-      statLine: player.statLine || fallback.statLine,
-      statLabel: player.statLabel || fallback.statLabel,
-      tableHeaders:
-        Array.isArray(player.tableHeaders) && player.tableHeaders.length > 0
-          ? player.tableHeaders
-          : fallback.tableHeaders,
-      tableValues:
-        Array.isArray(player.tableValues) && player.tableValues.length > 0
-          ? player.tableValues
-          : fallback.tableValues,
+      accent:
+        player.accent ||
+        TOP_PERFORMER_ACCENTS[index % TOP_PERFORMER_ACCENTS.length],
+      statLine: player.statLine || `${Number(player.points ?? 0)} PTS`,
+      statLabel: player.statLabel || "Top Performer",
+      tableHeaders: safeTableHeaders,
+      tableValues: safeTableValues,
     };
   });
 }
 
-export default function TopPerformersSection({
-  items = defaultTopPerformers,
-  allowFallback = true,
-}) {
-  const hasLiveItems = Array.isArray(items) && items.length > 0;
-  const topPerformers = hasLiveItems
-    ? normalizeTopPerformers(items)
-    : allowFallback
-      ? defaultTopPerformers
-      : [];
+export default function TopPerformersSection({ items = [] }) {
+  const topPerformers = useMemo(() => normalizeTopPerformers(items), [items]);
   const [activeIndex, setActiveIndex] = useState(0);
   const totalSlides = topPerformers.length;
+  const currentActiveIndex =
+    totalSlides > 0 ? activeIndex % totalSlides : 0;
 
   const moveSlide = (direction) => {
     setActiveIndex((current) =>
@@ -135,7 +60,7 @@ export default function TopPerformersSection({
   };
 
   const getRelativePosition = (index) => {
-    const diff = (index - activeIndex + totalSlides) % totalSlides;
+    const diff = (index - currentActiveIndex + totalSlides) % totalSlides;
 
     if (diff === 0) return 0;
     if (diff === 1) return 1;
@@ -255,7 +180,7 @@ export default function TopPerformersSection({
                 <div className="absolute inset-y-0 right-0 z-10 flex w-[62%] flex-col justify-center px-4 py-5 text-white sm:w-[60%] sm:px-10 sm:py-6">
                   <div className="flex items-end gap-2 sm:gap-5">
                     <div className="font-heading text-[2.7rem] leading-none text-white sm:text-[7rem]">
-                      {activeIndex + 1}
+                      {index + 1}
                     </div>
 
                     <div className="min-w-0 pb-1 sm:pb-2">
@@ -311,7 +236,9 @@ export default function TopPerformersSection({
                 type="button"
                 onClick={() => setActiveIndex(index)}
                 className={`h-2.5 rounded-full ${
-                  index === activeIndex ? "w-8 bg-slate-800" : "w-2.5 bg-slate-400/60"
+                  index === currentActiveIndex
+                    ? "w-8 bg-slate-800"
+                    : "w-2.5 bg-slate-400/60"
                 }`}
                 aria-label={`Go to ${player.name}`}
               />

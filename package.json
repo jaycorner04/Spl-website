@@ -23,8 +23,8 @@
     "test:smoke": "node --test scripts/dashboard-services.test.js",
     "test:integration": "node --test scripts/api-integration.test.js",
     "test": "npm run test:smoke && npm run test:integration",
-    "api": "node server.js",
-    "start": "node server.js"
+    "api": "node scripts/run-python-api.js",
+    "start": "node scripts/run-python-api.js"
   },
   "dependencies": {
     "axios": "^1.13.6",

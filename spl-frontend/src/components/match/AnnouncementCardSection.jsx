@@ -1,18 +1,12 @@
 import { useMemo, useState } from "react";
-import { defaultAnnouncementItems } from "./defaultAnnouncementItems";
 import AnnouncementDetailsPanel from "./AnnouncementDetailsPanel";
 import { getAnnouncementItemKey } from "./announcementDetails";
 
-export default function AnnouncementCardSection({
-  items = defaultAnnouncementItems,
-  allowFallback = true,
-}) {
+export default function AnnouncementCardSection({ items = [] }) {
   const [selectedAnnouncementKey, setSelectedAnnouncementKey] = useState("");
-  const hasLiveItems = Array.isArray(items) && items.length > 0;
   const announcementItems = useMemo(
-    () =>
-      hasLiveItems ? items : allowFallback ? defaultAnnouncementItems : [],
-    [allowFallback, hasLiveItems, items]
+    () => (Array.isArray(items) ? items : []),
+    [items]
   );
   const selectedAnnouncement = useMemo(
     () =>

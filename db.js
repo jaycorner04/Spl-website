@@ -961,10 +961,7 @@ function normalizeAuditLogRecord(record = {}) {
 
 async function createAuditLog(entry = {}) {
   const pool = await initializeDatabase();
-  const nextId = await getNextId(pool, "audit_logs");
-
   const result = await pool.request()
-    .input("id", sql.Int, nextId)
     .input("actor_user_id", sql.Int, entry.actorUserId ?? null)
     .input("actor_email", sql.NVarChar(255), entry.actorEmail || "")
     .input("actor_role", sql.NVarChar(50), entry.actorRole || "")
@@ -977,6 +974,15 @@ async function createAuditLog(entry = {}) {
     .input("ip_address", sql.NVarChar(100), entry.ipAddress || "")
     .input("created_at", sql.NVarChar(64), entry.createdAt || new Date().toISOString())
     .query(`
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+DECLARE @next_id INT;
+
+-- Serialize audit-log id allocation so concurrent requests cannot insert the same id.
+SELECT @next_id = ISNULL(MAX([id]), 0) + 1
+FROM dbo.audit_logs WITH (TABLOCKX, HOLDLOCK);
+
 INSERT INTO dbo.audit_logs (
   id,
   actor_user_id,
@@ -993,7 +999,7 @@ INSERT INTO dbo.audit_logs (
 )
 OUTPUT INSERTED.*
 VALUES (
-  @id,
+  @next_id,
   @actor_user_id,
   @actor_email,
   @actor_role,
@@ -1006,6 +1012,8 @@ VALUES (
   @ip_address,
   @created_at
 );
+
+COMMIT TRANSACTION;
 `);
 
   return normalizeAuditLogRecord(result.recordset[0]);
