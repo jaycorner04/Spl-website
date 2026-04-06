@@ -141,6 +141,37 @@ jobs:
           echo "bundle_key=${BUNDLE_KEY}" >> "$GITHUB_OUTPUT"
           echo "bundle_url=${BUNDLE_URL}" >> "$GITHUB_OUTPUT"
 
+      - name: Validate EC2 and SSM target state
+        shell: bash
+        run: |
+          INSTANCE_STATE=$(aws ec2 describe-instances \
+            --instance-ids "$AWS_SSM_INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+          echo "EC2 instance state: ${INSTANCE_STATE}"
+          test "$INSTANCE_STATE" = "running" || {
+            echo "EC2 instance must be in the running state before deployment."
+            exit 1
+          }
+
+          PING_STATUS=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
+            --query 'InstanceInformationList[0].PingStatus' \
+            --output text)
+          PLATFORM_NAME=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
+            --query 'InstanceInformationList[0].PlatformName' \
+            --output text)
+
+          echo "SSM ping status: ${PING_STATUS}"
+          echo "SSM platform: ${PLATFORM_NAME}"
+
+          test "$PING_STATUS" = "Online" || {
+            echo "SSM instance must be registered and Online before deployment."
+            echo "Check that the EC2 instance has an IAM instance profile with AmazonSSMManagedInstanceCore and that amazon-ssm-agent is running."
+            exit 1
+          }
+
       - name: Build SSM command payload
         shell: bash
         env:
