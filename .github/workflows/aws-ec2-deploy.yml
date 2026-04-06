@@ -32,7 +32,7 @@ jobs:
           --health-timeout 10s
           --health-retries 30
     env:
-      NODE_VERSION: "20"
+      NODE_VERSION: "24"
       AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || 'splleague' }}
       AWS_SSM_INSTANCE_ID: ${{ vars.AWS_SSM_INSTANCE_ID || 'i-093564b6313ba6587' }}
