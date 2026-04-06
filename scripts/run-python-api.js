@@ -7,6 +7,7 @@ const projectRoot = path.resolve(__dirname, "..");
 const pythonCandidates = [
   process.env.PYTHON_BACKEND_EXECUTABLE,
   "C:\\Users\\abhis\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "python3",
   "python",
   "py",
 ].filter(Boolean);

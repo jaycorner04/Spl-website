@@ -43,7 +43,14 @@ if [[ -z "$SYSTEMCTL_BIN" ]]; then
 fi
 
 echo "Installing Linux deployment dependencies"
-dnf install -y amazon-ssm-agent nodejs npm nginx git unzip curl-minimal python3 rsync docker
+dnf install -y amazon-ssm-agent nodejs npm nginx git unzip curl-minimal python3 python3-pip rsync docker
+
+if ! command -v pwsh >/dev/null 2>&1; then
+  echo "Installing PowerShell"
+  rpm --import https://packages.microsoft.com/keys/microsoft.asc
+  curl -fsSL https://packages.microsoft.com/config/rhel/9/prod.repo -o /etc/yum.repos.d/microsoft-prod.repo
+  dnf install -y powershell
+fi
 
 echo "Enabling Amazon SSM Agent, Docker, and Nginx"
 "$SYSTEMCTL_BIN" enable --now amazon-ssm-agent
@@ -65,7 +72,9 @@ Type=simple
 User=ec2-user
 WorkingDirectory=${APP_ROOT}
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/node ${APP_ROOT}/server.js
+Environment=PYTHON_BACKEND_EXECUTABLE=/usr/bin/python3
+Environment=POWERSHELL_EXECUTABLE=/usr/bin/pwsh
+ExecStart=/usr/bin/node ${APP_ROOT}/scripts/run-python-api.js
 Restart=always
 RestartSec=10
 StandardOutput=journal

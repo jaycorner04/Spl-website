@@ -90,21 +90,19 @@ EOF
 }
 
 ensure_service_file() {
-  if [[ -f "$SERVICE_FILE" ]]; then
-    return
-  fi
-
   cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=SPL Node Application
-After=network.target
+After=network.target docker.service
 
 [Service]
 Type=simple
 User=ec2-user
 WorkingDirectory=${APP_ROOT}
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/node ${APP_ROOT}/server.js
+Environment=PYTHON_BACKEND_EXECUTABLE=/usr/bin/python3
+Environment=POWERSHELL_EXECUTABLE=/usr/bin/pwsh
+ExecStart=/usr/bin/node ${APP_ROOT}/scripts/run-python-api.js
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -116,6 +114,21 @@ EOF
 
   "$SYSTEMCTL_BIN" daemon-reload
   "$SYSTEMCTL_BIN" enable "$SERVICE_NAME"
+}
+
+ensure_python_backend_runtime() {
+  echo "Installing Python runtime dependencies"
+  dnf install -y python3 python3-pip curl-minimal
+
+  if ! command -v pwsh >/dev/null 2>&1; then
+    echo "Installing PowerShell"
+    rpm --import https://packages.microsoft.com/keys/microsoft.asc
+    curl -fsSL https://packages.microsoft.com/config/rhel/9/prod.repo -o /etc/yum.repos.d/microsoft-prod.repo
+    dnf install -y powershell
+  fi
+
+  python3 -m pip install --upgrade pip
+  python3 -m pip install -r "${APP_ROOT}/python_backend/requirements.txt"
 }
 
 ensure_docker() {
@@ -241,6 +254,7 @@ chown -R ec2-user:ec2-user "$DEPLOYMENT_ROOT"
 echo "Writing production environment files"
 write_backend_env
 write_frontend_env
+ensure_python_backend_runtime
 
 echo "Preparing production database"
 ensure_local_sqlserver

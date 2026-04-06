@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -521,6 +522,17 @@ def _query_returns_rows(query: str) -> bool:
     return normalized.startswith("SELECT") or normalized.startswith("WITH")
 
 
+def _resolve_powershell_command() -> list[str]:
+    configured = str(os.environ.get("POWERSHELL_EXECUTABLE") or "").strip()
+    if configured:
+        return [configured]
+
+    if os.name == "nt":
+        return ["powershell"]
+
+    return ["pwsh"]
+
+
 def _run_sql(query: str, params: tuple[Any, ...] = (), database: str | None = None, expect_rows: bool | None = None) -> dict[str, Any]:
     prepared_query, parameters = _prepare_query(query, params)
     payload = {
@@ -538,7 +550,7 @@ def _run_sql(query: str, params: tuple[Any, ...] = (), database: str | None = No
     try:
         completed = subprocess.run(
             [
-                "powershell",
+                *_resolve_powershell_command(),
                 "-NoProfile",
                 "-NonInteractive",
                 "-ExecutionPolicy",
