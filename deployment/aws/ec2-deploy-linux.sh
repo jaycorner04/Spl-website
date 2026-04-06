@@ -185,8 +185,12 @@ ensure_local_sqlserver() {
   docker volume create "$SQL_VOLUME_NAME" >/dev/null
 
   if docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
-    echo "Recreating SQL container with image $SQL_IMAGE"
-    docker rm -f "$SQL_CONTAINER_NAME" >/dev/null || true
+    current_image="$(docker inspect -f '{{.Config.Image}}' "$SQL_CONTAINER_NAME" 2>/dev/null || true)"
+
+    if [[ "$current_image" != "$SQL_IMAGE" ]]; then
+      echo "Recreating SQL container with image $SQL_IMAGE"
+      docker rm -f "$SQL_CONTAINER_NAME" >/dev/null || true
+    fi
   fi
 
   if ! docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
@@ -235,7 +239,6 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude 'node_modules' \
     --exclude 'server-media' \
     --exclude 'spl-frontend/node_modules' \
-    --exclude 'spl-frontend/dist' \
     "${BUNDLE_ROOT}/" "${APP_ROOT}/"
 else
   find "$APP_ROOT" -mindepth 1 -maxdepth 1 \
@@ -245,7 +248,7 @@ else
     ! -name 'spl-frontend' \
     -exec rm -rf {} +
   cp -a "${BUNDLE_ROOT}/." "${APP_ROOT}/"
-  rm -rf "${APP_ROOT}/node_modules" "${FRONTEND_ROOT}/node_modules" "${FRONTEND_ROOT}/dist"
+  rm -rf "${APP_ROOT}/node_modules" "${FRONTEND_ROOT}/node_modules"
 fi
 
 chown -R ec2-user:ec2-user "$DEPLOYMENT_ROOT"
@@ -263,13 +266,17 @@ pushd "$APP_ROOT" >/dev/null
 export NODE_ENV="$NODE_ENVIRONMENT"
 
 echo "Installing backend dependencies"
-npm ci
+npm ci --omit=dev
 
-echo "Installing frontend dependencies"
-npm ci --prefix spl-frontend
+if [[ -f "${FRONTEND_ROOT}/dist/index.html" ]]; then
+  echo "Using prebuilt frontend assets from deployment bundle"
+else
+  echo "Installing frontend dependencies"
+  npm ci --prefix spl-frontend
 
-echo "Building frontend"
-npm run build:frontend
+  echo "Building frontend"
+  npm run build:frontend
+fi
 
 echo "Validating runtime environment"
 npm run validate:env
