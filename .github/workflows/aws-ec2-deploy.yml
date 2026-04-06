@@ -180,11 +180,16 @@ jobs:
             sleep 15
           done
 
-          test "$PING_STATUS" = "Online" || {
-            echo "SSM instance must be registered and Online before deployment."
+          if [ "$PING_STATUS" = "Online" ]; then
+            echo "SSM target is online."
+          elif [ "$PING_STATUS" = "ConnectionLost" ] && [ "$PLATFORM_NAME" != "None" ] && [ -n "$PLATFORM_NAME" ]; then
+            echo "SSM target is registered but currently ConnectionLost."
+            echo "Proceeding so the deploy command can queue while the agent reconnects."
+          else
+            echo "SSM instance must be registered before deployment."
             echo "Check that the EC2 instance has an IAM instance profile with AmazonSSMManagedInstanceCore, that amazon-ssm-agent is running, and that the instance has outbound access to SSM endpoints."
             exit 1
-          }
+          fi
 
       - name: Build SSM command payload
         shell: bash
