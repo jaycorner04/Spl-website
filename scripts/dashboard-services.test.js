@@ -2,11 +2,35 @@ process.env.NODE_ENV = process.env.NODE_ENV || "test";
 process.env.SPL_AUTH_SECRET =
   process.env.SPL_AUTH_SECRET || "spl-dashboard-test-secret";
 
+const path = require("path");
+const fs = require("fs");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { getAdminDashboardSection } = require("../adminDashboardService");
 const { getFranchiseDashboardSection } = require("../franchiseDashboardService");
+
+const authUsers = JSON.parse(
+  fs.readFileSync(
+    path.join(__dirname, "..", "server-data", "auth-users.json"),
+    "utf8"
+  )
+);
+const seededFranchiseAdmin =
+  authUsers.find((user) => user.role === "franchise_admin") || null;
+
+assert.ok(
+  seededFranchiseAdmin,
+  "Expected a seeded franchise_admin user in server-data/auth-users.json"
+);
+
+function buildSeededFranchiseUser() {
+  return {
+    role: "franchise_admin",
+    franchiseId: Number(seededFranchiseAdmin.franchiseId || 0),
+    employeeId: seededFranchiseAdmin.employeeId,
+  };
+}
 
 test("admin dashboard stats returns populated cards", async () => {
   const stats = await getAdminDashboardSection("stats");
@@ -21,11 +45,7 @@ test("admin dashboard stats returns populated cards", async () => {
 
 test("franchise dashboard summary resolves scoped franchise context", async () => {
   const payload = await getFranchiseDashboardSection("summary", {
-    user: {
-      role: "franchise_admin",
-      franchiseId: 12,
-      employeeId: "SPL-FRA-012",
-    },
+    user: buildSeededFranchiseUser(),
     searchParams: new URLSearchParams(),
   });
 
@@ -33,7 +53,7 @@ test("franchise dashboard summary resolves scoped franchise context", async () =
   assert.ok(payload.context, "summary should include franchise context");
   assert.equal(
     payload.context.franchiseId,
-    12,
+    Number(seededFranchiseAdmin.franchiseId || 0),
     "franchise dashboard should stay scoped to the assigned franchise"
   );
   assert.ok(Array.isArray(payload.cards), "summary cards should be present");
@@ -42,11 +62,7 @@ test("franchise dashboard summary resolves scoped franchise context", async () =
 
 test("franchise dashboard next match provides a fixture block", async () => {
   const payload = await getFranchiseDashboardSection("next-match", {
-    user: {
-      role: "franchise_admin",
-      franchiseId: 12,
-      employeeId: "SPL-FRA-012",
-    },
+    user: buildSeededFranchiseUser(),
     searchParams: new URLSearchParams(),
   });
 
