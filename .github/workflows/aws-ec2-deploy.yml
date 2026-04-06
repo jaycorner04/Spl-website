@@ -159,7 +159,7 @@ jobs:
 
           PING_STATUS=""
           PLATFORM_NAME=""
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 40); do
             PING_STATUS=$(aws ssm describe-instance-information \
               --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
               --query 'InstanceInformationList[0].PingStatus' \
@@ -176,7 +176,7 @@ jobs:
               break
             fi
 
-            echo "SSM is not online yet. Waiting 15 seconds before retry ${attempt}/12..."
+            echo "SSM is not online yet. Waiting 15 seconds before retry ${attempt}/40..."
             sleep 15
           done
 
