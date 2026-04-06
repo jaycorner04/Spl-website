@@ -17,7 +17,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
     services:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
