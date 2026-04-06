@@ -127,7 +127,6 @@ ensure_python_backend_runtime() {
     dnf install -y powershell
   fi
 
-  python3 -m pip install --upgrade pip
   python3 -m pip install -r "${APP_ROOT}/python_backend/requirements.txt"
 }
 
