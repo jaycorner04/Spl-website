@@ -64,6 +64,8 @@ jobs:
       PROD_USE_LOCAL_SQLSERVER: ${{ vars.PROD_USE_LOCAL_SQLSERVER || 'true' }}
       PROD_SQL_CONTAINER_NAME: ${{ vars.PROD_SQL_CONTAINER_NAME || 'spl-sqlserver' }}
       PROD_SQL_IMAGE: ${{ vars.PROD_SQL_IMAGE || 'mcr.microsoft.com/azure-sql-edge:latest' }}
+      PROD_SQL_VOLUME_NAME: ${{ vars.PROD_SQL_VOLUME_NAME || 'spl-sqlserver-data' }}
+      PROD_SQL_MEMORY_LIMIT_MB: ${{ vars.PROD_SQL_MEMORY_LIMIT_MB || '1024' }}
       PROD_SQL_SA_PASSWORD: ${{ secrets.PROD_SQL_SA_PASSWORD }}
       PROD_RATE_LIMIT_ENABLED: ${{ vars.PROD_RATE_LIMIT_ENABLED || 'true' }}
       PROD_DB_ENCRYPT: ${{ vars.PROD_DB_ENCRYPT || 'false' }}
@@ -209,6 +211,10 @@ jobs:
               process.env.PROD_SQL_CONTAINER_NAME || "spl-sqlserver",
             PROD_SQL_IMAGE:
               process.env.PROD_SQL_IMAGE || "mcr.microsoft.com/azure-sql-edge:latest",
+            PROD_SQL_VOLUME_NAME:
+              process.env.PROD_SQL_VOLUME_NAME || "spl-sqlserver-data",
+            PROD_SQL_MEMORY_LIMIT_MB:
+              process.env.PROD_SQL_MEMORY_LIMIT_MB || "1024",
             PROD_SQL_SA_PASSWORD:
               process.env.PROD_SQL_SA_PASSWORD || "",
             PROD_RATE_LIMIT_ENABLED:

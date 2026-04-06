@@ -45,7 +45,8 @@ SYSTEMCTL_BIN="$(command -v systemctl || true)"
 USE_LOCAL_SQLSERVER="${PROD_USE_LOCAL_SQLSERVER:-true}"
 SQL_CONTAINER_NAME="${PROD_SQL_CONTAINER_NAME:-spl-sqlserver}"
 SQL_IMAGE="${PROD_SQL_IMAGE:-mcr.microsoft.com/azure-sql-edge:latest}"
-SQL_DATA_ROOT="${DEPLOYMENT_ROOT}/sqlserver-data"
+SQL_VOLUME_NAME="${PROD_SQL_VOLUME_NAME:-${SQL_CONTAINER_NAME}-data}"
+SQL_MEMORY_LIMIT_MB="${PROD_SQL_MEMORY_LIMIT_MB:-1024}"
 SQL_SA_PASSWORD="${PROD_SQL_SA_PASSWORD:-${PROD_DB_PASSWORD:-}}"
 
 if [[ -z "$SYSTEMCTL_BIN" && -x "/usr/bin/systemctl" ]]; then
@@ -169,7 +170,7 @@ ensure_local_sqlserver() {
   fi
 
   ensure_docker
-  mkdir -p "$SQL_DATA_ROOT"
+  docker volume create "$SQL_VOLUME_NAME" >/dev/null
 
   if docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
     local existing_image=""
@@ -181,9 +182,12 @@ ensure_local_sqlserver() {
         --name "$SQL_CONTAINER_NAME" \
         --restart unless-stopped \
         -e ACCEPT_EULA=Y \
+        -e MSSQL_PID=Developer \
+        -e MSSQL_MEMORY_LIMIT_MB="$SQL_MEMORY_LIMIT_MB" \
         -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
+        --cap-add SYS_PTRACE \
         -p 1433:1433 \
-        -v "${SQL_DATA_ROOT}:/var/opt/mssql" \
+        -v "${SQL_VOLUME_NAME}:/var/opt/mssql" \
         "$SQL_IMAGE" >/dev/null
     else
       echo "Starting existing SQL Server container"
@@ -195,9 +199,12 @@ ensure_local_sqlserver() {
       --name "$SQL_CONTAINER_NAME" \
       --restart unless-stopped \
       -e ACCEPT_EULA=Y \
+      -e MSSQL_PID=Developer \
+      -e MSSQL_MEMORY_LIMIT_MB="$SQL_MEMORY_LIMIT_MB" \
       -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
+      --cap-add SYS_PTRACE \
       -p 1433:1433 \
-      -v "${SQL_DATA_ROOT}:/var/opt/mssql" \
+      -v "${SQL_VOLUME_NAME}:/var/opt/mssql" \
       "$SQL_IMAGE" >/dev/null
   fi
 
