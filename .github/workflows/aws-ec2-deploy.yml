@@ -157,21 +157,32 @@ jobs:
             exit 1
           }
 
-          PING_STATUS=$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
-            --query 'InstanceInformationList[0].PingStatus' \
-            --output text)
-          PLATFORM_NAME=$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
-            --query 'InstanceInformationList[0].PlatformName' \
-            --output text)
+          PING_STATUS=""
+          PLATFORM_NAME=""
+          for attempt in $(seq 1 12); do
+            PING_STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
+              --query 'InstanceInformationList[0].PingStatus' \
+              --output text)
+            PLATFORM_NAME=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
+              --query 'InstanceInformationList[0].PlatformName' \
+              --output text)
 
-          echo "SSM ping status: ${PING_STATUS}"
-          echo "SSM platform: ${PLATFORM_NAME}"
+            echo "SSM ping status: ${PING_STATUS}"
+            echo "SSM platform: ${PLATFORM_NAME}"
+
+            if [ "$PING_STATUS" = "Online" ]; then
+              break
+            fi
+
+            echo "SSM is not online yet. Waiting 15 seconds before retry ${attempt}/12..."
+            sleep 15
+          done
 
           test "$PING_STATUS" = "Online" || {
             echo "SSM instance must be registered and Online before deployment."
-            echo "Check that the EC2 instance has an IAM instance profile with AmazonSSMManagedInstanceCore and that amazon-ssm-agent is running."
+            echo "Check that the EC2 instance has an IAM instance profile with AmazonSSMManagedInstanceCore, that amazon-ssm-agent is running, and that the instance has outbound access to SSM endpoints."
             exit 1
           }
 
