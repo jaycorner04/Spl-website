@@ -173,31 +173,16 @@ ensure_local_sqlserver() {
   docker volume create "$SQL_VOLUME_NAME" >/dev/null
 
   if docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
-    local existing_image=""
-    existing_image="$(docker inspect --format '{{.Config.Image}}' "$SQL_CONTAINER_NAME" 2>/dev/null || true)"
-    if [[ "$existing_image" != "$SQL_IMAGE" ]]; then
-      echo "Recreating SQL container with image $SQL_IMAGE"
-      docker rm -f "$SQL_CONTAINER_NAME" >/dev/null || true
-      docker run -d \
-        --name "$SQL_CONTAINER_NAME" \
-        --restart unless-stopped \
-        -e ACCEPT_EULA=Y \
-        -e MSSQL_PID=Developer \
-        -e MSSQL_MEMORY_LIMIT_MB="$SQL_MEMORY_LIMIT_MB" \
-        -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
-        --cap-add SYS_PTRACE \
-        -p 1433:1433 \
-        -v "${SQL_VOLUME_NAME}:/var/opt/mssql" \
-        "$SQL_IMAGE" >/dev/null
-    else
-      echo "Starting existing SQL Server container"
-      docker start "$SQL_CONTAINER_NAME" >/dev/null || true
-    fi
-  else
+    echo "Recreating SQL container with image $SQL_IMAGE"
+    docker rm -f "$SQL_CONTAINER_NAME" >/dev/null || true
+  fi
+
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "$SQL_CONTAINER_NAME"; then
     echo "Creating local SQL container from $SQL_IMAGE"
     docker run -d \
       --name "$SQL_CONTAINER_NAME" \
       --restart unless-stopped \
+      --user root \
       -e ACCEPT_EULA=Y \
       -e MSSQL_PID=Developer \
       -e MSSQL_MEMORY_LIMIT_MB="$SQL_MEMORY_LIMIT_MB" \
@@ -206,6 +191,9 @@ ensure_local_sqlserver() {
       -p 1433:1433 \
       -v "${SQL_VOLUME_NAME}:/var/opt/mssql" \
       "$SQL_IMAGE" >/dev/null
+  else
+    echo "Starting existing SQL Server container"
+    docker start "$SQL_CONTAINER_NAME" >/dev/null || true
   fi
 
   echo "Waiting for local SQL Server to accept connections"
