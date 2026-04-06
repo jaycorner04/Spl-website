@@ -280,6 +280,28 @@ jobs:
           fs.writeFileSync("out/ssm-command.json", JSON.stringify(payload, null, 2));
           NODE
 
+      - name: Clear stale SSM deploy commands
+        shell: bash
+        run: |
+          mapfile -t OLD_COMMAND_IDS < <(
+            aws ssm list-command-invocations \
+              --details \
+              --query "CommandInvocations[?InstanceId=='${AWS_SSM_INSTANCE_ID}' && DocumentName=='AWS-RunShellScript' && (Status=='Pending' || Status=='InProgress' || Status=='Delayed')].CommandId" \
+              --output text | tr '\t' '\n' | sort -u | sed '/^$/d'
+          )
+
+          if [ "${#OLD_COMMAND_IDS[@]}" -eq 0 ]; then
+            echo "No stale SSM commands found."
+            exit 0
+          fi
+
+          for COMMAND_ID in "${OLD_COMMAND_IDS[@]}"; do
+            echo "Cancelling stale SSM command: ${COMMAND_ID}"
+            aws ssm cancel-command --command-id "${COMMAND_ID}" || true
+          done
+
+          sleep 10
+
       - name: Trigger SSM deployment
         id: ssm
         shell: bash
