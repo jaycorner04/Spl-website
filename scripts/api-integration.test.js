@@ -23,8 +23,13 @@ const createdMatchIds = new Set();
 const createdPlayerIds = new Set();
 const createdUserEmails = new Set();
 
-async function request(pathname, { method = "GET", token, body } = {}) {
-  const headers = {};
+async function request(
+  pathname,
+  { method = "GET", token, body, headers: extraHeaders } = {}
+) {
+  const headers = {
+    ...(extraHeaders || {}),
+  };
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -379,7 +384,11 @@ test(
   "monitoring and audit routes expose operational data to the expected callers",
   { concurrency: false },
   async () => {
-    const metricsResponse = await request("/api/metrics/");
+    const metricsResponse = await request("/api/metrics/", {
+      headers: {
+        "x-monitoring-token": process.env.SPL_MONITORING_TOKEN || "",
+      },
+    });
     assert.equal(metricsResponse.status, 200);
     assert.equal(metricsResponse.json?.status, "ok");
      assert.equal(
