@@ -100,7 +100,7 @@ export function loadLiveMatchState() {
       ...defaultLiveMatchState,
       ...parsed,
     };
-  } catch (error) {
+  } catch {
     return defaultLiveMatchState;
   }
 }

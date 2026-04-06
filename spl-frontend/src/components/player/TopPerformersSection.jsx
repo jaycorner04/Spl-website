@@ -81,7 +81,7 @@ const defaultTopPerformers = [
 
 function normalizeTopPerformers(items) {
   if (!Array.isArray(items) || items.length === 0) {
-    return defaultTopPerformers;
+    return [];
   }
 
   return items.map((player, index) => {
@@ -113,8 +113,16 @@ function normalizeTopPerformers(items) {
   });
 }
 
-export default function TopPerformersSection({ items = defaultTopPerformers }) {
-  const topPerformers = normalizeTopPerformers(items);
+export default function TopPerformersSection({
+  items = defaultTopPerformers,
+  allowFallback = true,
+}) {
+  const hasLiveItems = Array.isArray(items) && items.length > 0;
+  const topPerformers = hasLiveItems
+    ? normalizeTopPerformers(items)
+    : allowFallback
+      ? defaultTopPerformers
+      : [];
   const [activeIndex, setActiveIndex] = useState(0);
   const totalSlides = topPerformers.length;
 
@@ -174,43 +182,48 @@ export default function TopPerformersSection({ items = defaultTopPerformers }) {
         : "absolute bottom-0 left-[56%] h-[72%] w-auto max-w-none -translate-x-1/2 object-contain object-bottom sm:left-1/2 sm:h-auto sm:max-h-[95%] sm:w-[86%] sm:max-w-[430px]";
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-12 sm:px-6 sm:py-14 lg:px-8 xl:px-10">
+    <section className="spl-home-shell relative z-10 w-full py-12 sm:py-14">
       <div className="mb-7">
         <h2 className="text-3xl font-bold tracking-[-0.03em] text-black sm:text-4xl lg:text-[3.1rem]">
           Top <span className="text-yellow-400">Performers</span>
         </h2>
       </div>
 
-      <div className="px-0 py-4">
-        <div className="relative mx-auto mt-2 h-[420px] max-w-[1120px] sm:h-[460px]">
-          <button
-            type="button"
-            onClick={() => moveSlide("left")}
-            className="absolute left-1 top-1/2 z-40 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] backdrop-blur-sm sm:left-2 sm:h-12 sm:w-12"
-            aria-label="Previous player"
-          >
-            <span className="text-2xl font-black leading-none text-black">&#8592;</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => moveSlide("right")}
-            className="absolute right-1 top-1/2 z-40 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] backdrop-blur-sm sm:right-2 sm:h-12 sm:w-12"
-            aria-label="Next player"
-          >
-            <span className="text-2xl font-black leading-none text-black">&#8594;</span>
-          </button>
+      {topPerformers.length === 0 ? (
+        <div className="rounded-[24px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+          Top performer stats will appear here once match performance data is available.
+        </div>
+      ) : (
+        <div className="px-0 py-4">
+          <div className="relative mx-auto mt-2 h-[420px] max-w-[1120px] sm:h-[460px]">
+            <button
+              type="button"
+              onClick={() => moveSlide("left")}
+              className="absolute left-1 top-1/2 z-40 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] backdrop-blur-sm sm:left-2 sm:h-12 sm:w-12"
+              aria-label="Previous player"
+            >
+              <span className="text-2xl font-black leading-none text-black">&#8592;</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => moveSlide("right")}
+              className="absolute right-1 top-1/2 z-40 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] backdrop-blur-sm sm:right-2 sm:h-12 sm:w-12"
+              aria-label="Next player"
+            >
+              <span className="text-2xl font-black leading-none text-black">&#8594;</span>
+            </button>
 
-          {topPerformers.map((player, index) => {
-            const position = getRelativePosition(index);
+            {topPerformers.map((player, index) => {
+              const position = getRelativePosition(index);
 
-            return (
-              <RouteAction
-                key={player.name}
-                to={player.href}
-                aria-label={`Open ${player.name} details`}
-                className="group absolute left-1/2 top-1/2 block h-[380px] w-[calc(100vw-3.5rem)] max-w-[760px] overflow-hidden rounded-[24px] border border-white/10 bg-[#10182f] text-left shadow-[0_24px_60px_rgba(15,23,42,0.34)] transition-all duration-200 hover:border-white/10 sm:h-[410px] sm:w-[940px] sm:max-w-none sm:rounded-[28px]"
-                style={getCardStyle(position)}
-              >
+              return (
+                <RouteAction
+                  key={player.name}
+                  to={player.href}
+                  aria-label={`Open ${player.name} details`}
+                  className="group absolute left-1/2 top-1/2 block h-[380px] w-[calc(100vw-3.5rem)] max-w-[760px] overflow-hidden rounded-[24px] border border-white/10 bg-[#10182f] text-left shadow-[0_24px_60px_rgba(15,23,42,0.34)] transition-all duration-200 hover:border-white/10 sm:h-[410px] sm:w-[940px] sm:max-w-none sm:rounded-[28px]"
+                  style={getCardStyle(position)}
+                >
                 {player.image ? (
                   <img
                     src={player.image}
@@ -286,25 +299,26 @@ export default function TopPerformersSection({ items = defaultTopPerformers }) {
                     </span>
                   </div>
                 </div>
-              </RouteAction>
-            );
-          })}
-        </div>
+                </RouteAction>
+              );
+            })}
+          </div>
 
-        <div className="mt-6 flex items-center justify-center gap-2">
-          {topPerformers.map((player, index) => (
-            <button
-              key={player.name}
-              type="button"
-              onClick={() => setActiveIndex(index)}
-              className={`h-2.5 rounded-full ${
-                index === activeIndex ? "w-8 bg-slate-800" : "w-2.5 bg-slate-400/60"
-              }`}
-              aria-label={`Go to ${player.name}`}
-            />
-          ))}
+          <div className="mt-6 flex items-center justify-center gap-2">
+            {topPerformers.map((player, index) => (
+              <button
+                key={player.name}
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                className={`h-2.5 rounded-full ${
+                  index === activeIndex ? "w-8 bg-slate-800" : "w-2.5 bg-slate-400/60"
+                }`}
+                aria-label={`Go to ${player.name}`}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

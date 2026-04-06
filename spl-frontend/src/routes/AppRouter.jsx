@@ -24,6 +24,9 @@ const AdminTeamsPage = lazy(() => import("../pages/admin/AdminTeamsPage"));
 const AdminFranchisesPage = lazy(() =>
   import("../pages/admin/AdminFranchisesPage")
 );
+const AdminSponsorsPage = lazy(() =>
+  import("../pages/admin/AdminSponsorsPage")
+);
 const AdminApprovalsPage = lazy(() =>
   import("../pages/admin/AdminApprovalsPage")
 );
@@ -94,6 +97,7 @@ export default function AppRouter() {
             <Route path="/admin/finance" element={<FinanceDashboard />} />
             <Route path="/admin/teams" element={<AdminTeamsPage />} />
             <Route path="/admin/franchises" element={<AdminFranchisesPage />} />
+            <Route path="/admin/sponsors" element={<AdminSponsorsPage />} />
             <Route
               path="/franchises"
               element={<Navigate to="/admin/franchises" replace />}

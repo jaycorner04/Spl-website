@@ -1,3 +1,7 @@
+process.env.NODE_ENV = process.env.NODE_ENV || "test";
+process.env.SPL_AUTH_SECRET =
+  process.env.SPL_AUTH_SECRET || "spl-integration-test-secret";
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const sql = require("mssql");
@@ -9,9 +13,13 @@ const { startServer } = require("../server");
 let server;
 let baseUrl = "";
 let adminToken = "";
+let opsToken = "";
 let franchiseToken = "";
+let scorerToken = "";
+let financeToken = "";
 let fanToken = "";
 
+const createdMatchIds = new Set();
 const createdPlayerIds = new Set();
 const createdUserEmails = new Set();
 
@@ -54,6 +62,13 @@ async function request(pathname, { method = "GET", token, body } = {}) {
 async function cleanupCreatedData() {
   const pool = await initializeDatabase();
 
+  for (const matchId of createdMatchIds) {
+    await pool.request().input("id", sql.Int, Number(matchId)).query(`
+DELETE FROM dbo.matches
+WHERE id = @id;
+`);
+  }
+
   for (const playerId of createdPlayerIds) {
     await pool.request().input("id", sql.Int, Number(playerId)).query(`
 DELETE FROM dbo.players
@@ -68,6 +83,7 @@ WHERE email = @email;
 `);
   }
 
+  createdMatchIds.clear();
   createdPlayerIds.clear();
   createdUserEmails.clear();
 }
@@ -80,18 +96,28 @@ test.before(async () => {
 
   baseUrl = `http://127.0.0.1:${port}`;
 
-  const [adminUser, franchiseUser, fanUser] = await Promise.all([
+  const [adminUser, opsUser, franchiseUser, scorerUser, financeUser, fanUser] =
+    await Promise.all([
     getAuthUserByEmail("admin@spl.local"),
+    getAuthUserByEmail("ops@spl.local"),
     getAuthUserByEmail("franchise@spl.local"),
+    getAuthUserByEmail("scorer@spl.local"),
+    getAuthUserByEmail("finance@spl.local"),
     getAuthUserByEmail("fan@spl.local"),
-  ]);
+    ]);
 
   assert.ok(adminUser, "seeded admin user should exist");
+  assert.ok(opsUser, "seeded ops manager should exist");
   assert.ok(franchiseUser, "seeded franchise admin should exist");
+  assert.ok(scorerUser, "seeded scorer should exist");
+  assert.ok(financeUser, "seeded finance admin should exist");
   assert.ok(fanUser, "seeded fan user should exist");
 
   adminToken = createSessionToken(adminUser);
+  opsToken = createSessionToken(opsUser);
   franchiseToken = createSessionToken(franchiseUser);
+  scorerToken = createSessionToken(scorerUser);
+  financeToken = createSessionToken(financeUser);
   fanToken = createSessionToken(fanUser);
 });
 
@@ -119,7 +145,7 @@ test(
   { concurrency: false },
   async () => {
     const uniqueSuffix = Date.now();
-    const email = `integration.fan.${uniqueSuffix}@spl.local`;
+    const email = `integrationfan${uniqueSuffix}@gmail.com`;
     const employeeId = `SPL-IT-FAN-${uniqueSuffix}`;
     const password = "Integration@123";
 
@@ -159,6 +185,51 @@ test(
     assert.equal(meResponse.status, 200);
     assert.equal(meResponse.json?.user?.email, email);
     assert.equal(meResponse.json?.user?.role, "fan_user");
+  }
+);
+
+test(
+  "public registration rejects fake or non-gmail email addresses",
+  { concurrency: false },
+  async () => {
+    const uniqueSuffix = Date.now();
+    const response = await request("/api/auth/register/", {
+      method: "POST",
+      body: {
+        fullName: "Invalid Email Fan",
+        email: `integration.fan.${uniqueSuffix}@spl.local`,
+        employeeId: `SPL-IT-INVALID-${uniqueSuffix}`,
+        password: "Integration@123",
+        role: "fan_user",
+      },
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.json?.detail, "Add valid Gmail account.");
+  }
+);
+
+test(
+  "franchise registration also rejects fake or non-gmail email addresses",
+  { concurrency: false },
+  async () => {
+    const uniqueSuffix = Date.now();
+    const response = await request("/api/auth/register/", {
+      method: "POST",
+      body: {
+        fullName: "Invalid Franchise Email",
+        email: `integration.franchise.${uniqueSuffix}@spl.local`,
+        employeeId: `SPL-IT-FR-INVALID-${uniqueSuffix}`,
+        password: "Integration@123",
+        role: "franchise_admin",
+        franchiseName: `Integration Franchise ${uniqueSuffix}`,
+        website: "https://example.com",
+        address: "Hyderabad",
+      },
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.json?.detail, "Add valid Gmail account.");
   }
 );
 
@@ -207,7 +278,7 @@ test(
     assert.equal(franchiseResponse.status, 403);
     assert.match(
       franchiseResponse.json?.detail || "",
-      /platform admins/i
+      /super admin/i
     );
 
     const adminResponse = await request("/api/admin/dashboard/stats/", {
@@ -216,6 +287,74 @@ test(
     assert.equal(adminResponse.status, 200);
     assert.ok(Array.isArray(adminResponse.json));
     assert.ok(adminResponse.json.length > 0);
+  }
+);
+
+test(
+  "role-scoped APIs allow only the expected dashboard actions",
+  { concurrency: false },
+  async () => {
+    const uniqueSuffix = Date.now();
+
+    const opsCreateResponse = await request("/api/matches/", {
+      method: "POST",
+      token: opsToken,
+      body: {
+        teamA: "Wipro",
+        teamB: "Infosys",
+        date: "2026-05-01",
+        time: "19:00",
+        venue: "SPL Main Stadium, Hyderabad",
+        status: "Upcoming",
+        result: "",
+        umpire: `Ops Umpire ${uniqueSuffix}`,
+      },
+    });
+
+    assert.equal(opsCreateResponse.status, 201);
+    assert.ok(opsCreateResponse.json?.id);
+    createdMatchIds.add(opsCreateResponse.json.id);
+
+    const opsFinanceResponse = await request("/api/invoices/", {
+      token: opsToken,
+    });
+    assert.equal(opsFinanceResponse.status, 403);
+
+    const scorerLiveUpdateResponse = await request("/api/live-match/", {
+      method: "PATCH",
+      token: scorerToken,
+      body: {
+        updatedByRoleTest: true,
+      },
+    });
+    assert.equal(scorerLiveUpdateResponse.status, 200);
+    assert.equal(scorerLiveUpdateResponse.json?.updatedByRoleTest, true);
+
+    const scorerMatchCreateResponse = await request("/api/matches/", {
+      method: "POST",
+      token: scorerToken,
+      body: {
+        teamA: "Wipro",
+        teamB: "Infosys",
+        date: "2026-05-02",
+        time: "20:00",
+        venue: "SPL Main Stadium, Hyderabad",
+        status: "Upcoming",
+      },
+    });
+    assert.equal(scorerMatchCreateResponse.status, 403);
+
+    const financeInvoicesResponse = await request("/api/invoices/", {
+      token: financeToken,
+    });
+    assert.equal(financeInvoicesResponse.status, 200);
+    assert.ok(Array.isArray(financeInvoicesResponse.json));
+    assert.ok(financeInvoicesResponse.json.length > 0);
+
+    const financeApprovalsResponse = await request("/api/approvals/", {
+      token: financeToken,
+    });
+    assert.equal(financeApprovalsResponse.status, 403);
   }
 );
 
@@ -233,6 +372,28 @@ test(
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
     assert.equal(response.headers.get("x-frame-options"), "SAMEORIGIN");
     assert.ok(response.headers.get("access-control-allow-origin"));
+  }
+);
+
+test(
+  "monitoring and audit routes expose operational data to the expected callers",
+  { concurrency: false },
+  async () => {
+    const metricsResponse = await request("/api/metrics/");
+    assert.equal(metricsResponse.status, 200);
+    assert.equal(metricsResponse.json?.status, "ok");
+    assert.ok(metricsResponse.json?.metrics?.http?.totalRequests >= 1);
+
+    const unauthorizedAuditResponse = await request("/api/admin/audit-logs/", {
+      token: financeToken,
+    });
+    assert.equal(unauthorizedAuditResponse.status, 403);
+
+    const auditResponse = await request("/api/admin/audit-logs/?limit=10", {
+      token: adminToken,
+    });
+    assert.equal(auditResponse.status, 200);
+    assert.ok(Array.isArray(auditResponse.json?.items));
   }
 );
 
@@ -315,7 +476,7 @@ test(
     assert.equal(shellResponse.json?.profile?.roleLabel, "Franchise Admin");
     assert.equal(shellResponse.json?.profile?.contextLabel, "Wipro");
     assert.equal(shellResponse.json?.badges?.["/franchise"], "1");
-    assert.equal(shellResponse.json?.badges?.["/admin/players"], "15");
+    assert.equal(shellResponse.json?.badges?.["/admin/players"], undefined);
 
     const notificationsSnapshot = JSON.stringify(
       shellResponse.json?.notifications || []

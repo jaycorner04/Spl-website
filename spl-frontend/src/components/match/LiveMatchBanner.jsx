@@ -23,7 +23,7 @@ export default function LiveMatchBanner() {
   );
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-10">
+    <section className="spl-home-shell relative z-10 w-full">
       <div className="group overflow-hidden rounded-[24px] border border-red-400/20 bg-[linear-gradient(90deg,rgba(185,28,28,0.92)_0%,rgba(153,27,27,0.88)_45%,rgba(127,29,29,0.84)_100%)] shadow-[0_10px_40px_rgba(127,29,29,0.25)] transition-all duration-300 hover:border-[#853953] hover:bg-[linear-gradient(90deg,rgba(133,57,83,0.96)_0%,rgba(111,47,70,0.92)_45%,rgba(95,36,57,0.88)_100%)] hover:shadow-[0_16px_40px_rgba(95,36,57,0.24)]">
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-7 sm:py-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">

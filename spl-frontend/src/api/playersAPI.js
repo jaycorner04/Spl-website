@@ -1,4 +1,5 @@
 import axiosInstance from "./axiosConfig";
+import { notifyPlayersUpdated } from "../utils/playerSync";
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -22,21 +23,25 @@ export async function getPlayers(params = {}) {
 
 export async function createPlayer(payload) {
   const response = await axiosInstance.post("/api/players/", payload);
+  notifyPlayersUpdated();
   return response.data;
 }
 
 export async function updatePlayer(id, payload) {
   const response = await axiosInstance.put(`/api/players/${id}/`, payload);
+  notifyPlayersUpdated();
   return response.data;
 }
 
 export async function patchPlayer(id, payload) {
   const response = await axiosInstance.patch(`/api/players/${id}/`, payload);
+  notifyPlayersUpdated();
   return response.data;
 }
 
 export async function deletePlayer(id) {
   await axiosInstance.delete(`/api/players/${id}/`);
+  notifyPlayersUpdated();
 }
 
 export async function uploadPlayerPhoto(file) {

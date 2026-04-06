@@ -1,22 +1,21 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { registerUser } from "../../api/authAPI";
 import AuthLeftPanel from "../../components/auth/AuthLeftPanel";
 import AuthInput from "../../components/auth/AuthInput";
 import PasswordRules from "../../components/auth/PasswordRules";
-import RoleSelector, {
-  roleOptions,
-} from "../../components/auth/RoleSelector";
+import RoleSelector from "../../components/auth/RoleSelector";
+import { registerRoleOptions } from "../../components/auth/roleOptions";
 import { getApiErrorMessage } from "../../utils/apiErrors";
 import {
   getDefaultPostLoginPath,
   saveAuthSession,
 } from "../../utils/authStorage";
-import { validateEmail, validatePassword } from "../../utils/authValidators";
-
-const registerRoleOptions = roleOptions.filter((role) =>
-  ["fan_user", "franchise_admin"].includes(role.value)
-);
+import {
+  validateEmail,
+  validateAllowedRegistrationEmail,
+  validatePassword,
+} from "../../utils/authValidators";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -44,6 +43,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formErrorRef = useRef(null);
   const selectedRoleMeta = registerRoleOptions.find(
     (role) => role.value === selectedRole
   );
@@ -53,6 +53,39 @@ export default function RegisterPage() {
     () => validatePassword(form.password || ""),
     [form.password]
   );
+
+  useEffect(() => {
+    if (!errors.form || !formErrorRef.current) {
+      return;
+    }
+
+    formErrorRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    formErrorRef.current.focus({ preventScroll: true });
+  }, [errors.form]);
+
+  const buildRegisterErrorState = (message) => {
+    const normalizedMessage = String(message || "").toLowerCase();
+    const nextErrors = {
+      form: message,
+    };
+
+    if (normalizedMessage.includes("email")) {
+      nextErrors.email = message;
+    }
+
+    if (normalizedMessage.includes("employee id")) {
+      nextErrors.employeeId = message;
+    }
+
+    if (isFranchiseRegistration && normalizedMessage.includes("franchise")) {
+      nextErrors.franchiseName = message;
+    }
+
+    return nextErrors;
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -89,6 +122,8 @@ export default function RegisterPage() {
       nextErrors.email = "Please enter email";
     } else if (!validateEmail(form.email.trim())) {
       nextErrors.email = "Please enter a valid email address";
+    } else if (!validateAllowedRegistrationEmail(form.email.trim())) {
+      nextErrors.email = "Add valid Gmail account.";
     }
 
     if (!form.employeeId.trim()) {
@@ -111,8 +146,20 @@ export default function RegisterPage() {
       nextErrors.confirmPassword = "Password and confirm password must match";
     }
 
+    const firstValidationError =
+      nextErrors.franchiseName ||
+      nextErrors.fullName ||
+      nextErrors.email ||
+      nextErrors.employeeId ||
+      nextErrors.password ||
+      nextErrors.confirmPassword;
+
+    if (firstValidationError) {
+      nextErrors.form = firstValidationError;
+    }
+
     setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    return !firstValidationError;
   };
 
   const handleSubmit = async (event) => {
@@ -146,10 +193,11 @@ export default function RegisterPage() {
           : undefined,
       });
     } catch (error) {
-      setErrors((prev) => ({
-        ...prev,
-        form: getApiErrorMessage(error, "Unable to create your account."),
-      }));
+      const errorMessage = getApiErrorMessage(
+        error,
+        "Unable to create your account."
+      );
+      setErrors(buildRegisterErrorState(errorMessage));
     } finally {
       setIsSubmitting(false);
     }
@@ -210,9 +258,10 @@ export default function RegisterPage() {
                   <span className="font-semibold">
                     {selectedRoleMeta?.title || "Franchise Admin"}
                   </span>
-                  . Your franchise account will appear in the super admin
-                  franchise list and must be approved before it can sign in or
-                  show on the home page.
+                  . Your franchise appears in the super admin franchise list
+                  right away. You can sign in and manage your franchise, teams,
+                  and players immediately, but it stays hidden from the public
+                  home page until super admin approval.
                 </>
               ) : (
                 <>
@@ -224,7 +273,13 @@ export default function RegisterPage() {
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               {errors.form ? (
-                <div className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                <div
+                  ref={formErrorRef}
+                  tabIndex={-1}
+                  role="alert"
+                  aria-live="assertive"
+                  className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 outline-none"
+                >
                   {errors.form}
                 </div>
               ) : null}
@@ -360,10 +415,10 @@ export default function RegisterPage() {
               >
                 {isSubmitting
                   ? isFranchiseRegistration
-                    ? "Submitting Request..."
+                    ? "Creating Franchise Account..."
                     : "Creating Account..."
                   : isFranchiseRegistration
-                  ? "Submit Franchise Request"
+                  ? "Create Franchise Account"
                   : "Create Account"}
               </button>
 

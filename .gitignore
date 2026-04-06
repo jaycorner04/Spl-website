@@ -8,3 +8,8 @@ spl-frontend/node_modules/
 spl-frontend/dist/
 spl-frontend/.env.local
 spl-frontend/.env.production.local
+.edge-uat-profile*/
+.tmp-*.log
+api-start.log
+test-artifacts/
+server-media/

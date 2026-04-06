@@ -2,7 +2,7 @@
 
 This project now supports a simple same-origin production deployment for your current stack:
 
-- Windows host
+- Linux or Windows host
 - Node backend
 - Vite frontend build
 - SQL Server
@@ -54,8 +54,10 @@ Keep or update:
 - `DB_USER=<your-sql-user>`
 - `DB_PASSWORD=<your-sql-password>`
 - `SPL_AUTH_SECRET=<long-random-secret>`
+- `SPL_MONITORING_TOKEN=<monitoring-token>`
 - `CORS_ALLOWED_ORIGINS=same-origin`
 - `RATE_LIMIT_ENABLED=true`
+- `DB_BACKUP_DIR=C:\spl-backups`
 
 Frontend file:
 - [C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\spl-frontend\.env.production.local](C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\spl-frontend\.env.production.local)
@@ -82,6 +84,7 @@ The backend now serves this folder directly in production-style deployments.
 ```powershell
 $env:NODE_ENV="production"
 npm run validate:env
+npm run db:migrate
 npm run db:health
 ```
 
@@ -111,9 +114,39 @@ Keep the same-origin setup:
 - backend env stays `CORS_ALLOWED_ORIGINS=same-origin`
 - frontend env stays `VITE_API_BASE_URL=/api`
 
-### IIS setup for your current environment
+### Nginx setup for Amazon Linux
 
-For Windows + SQL Server, IIS is a good production target.
+For your current Amazon Linux EC2 server, Nginx is the recommended production target.
+
+Install:
+- nginx
+- nodejs
+- npm
+- amazon-ssm-agent
+- unzip
+- python3
+
+Bootstrap the server once:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaycorner04/Spl-website/main/deployment/aws/bootstrap-amazon-linux.sh | sudo bash -s -- --deployment-root /srv/spl --service-name spl-node-app
+```
+
+Result:
+- Nginx handles the public domain and HTTPS
+- Nginx forwards requests to Node
+- Node serves both the SPA and `/api`
+- your app stays same-origin in production
+
+Recommended Linux flow:
+- Nginx public URL: `https://your-domain`
+- Node backend: `http://127.0.0.1:4000`
+- backend env: `CORS_ALLOWED_ORIGINS=same-origin`
+- frontend env: `VITE_API_BASE_URL=/api`
+
+### IIS setup for Windows
+
+For Windows + SQL Server, IIS is still a valid production target.
 
 Install these IIS features/modules:
 - URL Rewrite
@@ -128,18 +161,6 @@ In IIS:
 5. Place that `web.config` in the IIS site root
 6. Keep the Node app running on `127.0.0.1:4000`
 
-Result:
-- IIS handles the public domain and HTTPS
-- IIS forwards requests to Node
-- Node serves both the SPA and `/api`
-- your app stays same-origin in production
-
-Recommended IIS flow:
-- IIS public URL: `https://your-domain`
-- Node backend: `http://127.0.0.1:4000`
-- backend env: `CORS_ALLOWED_ORIGINS=same-origin`
-- frontend env: `VITE_API_BASE_URL=/api`
-
 ## 9. Release verification
 
 Local release verification:
@@ -149,12 +170,59 @@ npm run release:check
 ```
 
 This now verifies:
+- frontend lint
+- database migrations
 - backend tests
 - frontend production build
 - standalone SPA route smoke
 - backend-served SPA smoke
 
-## 10. Hosted deployment smoke
+## 10. Backups and restore
+
+Create a SQL backup:
+
+```powershell
+npm run db:backup
+```
+
+Optional custom output path:
+
+```powershell
+npm run db:backup -- --file=C:\spl-backups\spl-release.bak
+```
+
+Restore from a backup:
+
+```powershell
+npm run db:restore -- --file=C:\spl-backups\spl-release.bak
+```
+
+## 11. Monitoring and audit logging
+
+Health endpoint:
+- `/api/health`
+
+Metrics endpoint:
+- `/api/metrics`
+- send header: `X-Monitoring-Token: <SPL_MONITORING_TOKEN>`
+
+Quick monitoring check:
+
+```powershell
+npm run monitor:health
+```
+
+Admin audit log endpoint:
+- `/api/admin/audit-logs`
+- super admin only
+
+Logged actions now include:
+- auth register/login/logout/password-reset
+- create/update/delete on protected admin resources
+- live match updates
+- image uploads
+
+## 12. Hosted deployment smoke
 
 After your real domain is live:
 
@@ -172,7 +240,7 @@ Optional auth overrides for live smoke:
 - `DEPLOY_FRANCHISE_EMAIL`
 - `DEPLOY_FRANCHISE_PASSWORD`
 
-## 11. Recommended Windows operations
+## 13. Recommended Windows operations
 
 For a real server, keep the Node process running using a service manager or server process tool on Windows.
 
@@ -180,8 +248,11 @@ Minimum production checklist:
 - project files copied
 - `npm install` complete
 - production env files filled
+- `npm run db:migrate` complete
 - `npm run build:frontend` complete
 - `NODE_ENV=production`
 - `npm start` running
 - reverse proxy or firewall port configured if using public access
+- backup path configured and tested
+- monitoring token configured and tested
 - `npm run qa:deployed` passes after domain setup

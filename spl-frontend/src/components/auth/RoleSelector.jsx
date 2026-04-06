@@ -1,43 +1,5 @@
 import RoleCard from "./RoleCard";
-
-export const roleOptions = [
-  {
-    value: "super_admin",
-    icon: "👑",
-    title: "Super Admin",
-    subtitle: "Full league control",
-  },
-  {
-    value: "ops_manager",
-    icon: "⚙️",
-    title: "Ops Manager",
-    subtitle: "Match operations",
-  },
-  {
-    value: "franchise_admin",
-    icon: "🎮",
-    title: "Franchise Admin",
-    subtitle: "Team management",
-  },
-  {
-    value: "scorer",
-    icon: "📊",
-    title: "Scorer",
-    subtitle: "Live scoring",
-  },
-  {
-    value: "finance_admin",
-    icon: "💼",
-    title: "Finance Admin",
-    subtitle: "Financial ops",
-  },
-  {
-    value: "fan_user",
-    icon: "🎉",
-    title: "Fan User",
-    subtitle: "Fan experience",
-  },
-];
+import { roleOptions } from "./roleOptions";
 
 export default function RoleSelector({
   selectedRole,

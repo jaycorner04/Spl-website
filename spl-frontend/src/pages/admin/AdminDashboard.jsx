@@ -192,6 +192,15 @@ export default function AdminDashboard() {
 
   const franchiseColumns = [
     {
+      key: "serial",
+      label: "#",
+      render: (_row, index) => (
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+          {index + 1}
+        </span>
+      ),
+    },
+    {
       key: "companyName",
       label: "Franchise",
       render: (row) => {
@@ -224,9 +233,15 @@ export default function AdminDashboard() {
             </div>
 
             <div className="min-w-0">
-              <span className="block truncate font-medium text-slate-900">
-                {row.companyName}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="block truncate font-medium text-slate-900">
+                  {row.companyName}
+                </span>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+                  {row.linkedTeamsCount}{" "}
+                  {row.linkedTeamsCount === 1 ? "team" : "teams"}
+                </span>
+              </div>
               {row.featuredTeamName ? (
                 <span className="block truncate text-xs text-slate-500">
                   {row.featuredTeamName}
@@ -517,18 +532,22 @@ export default function AdminDashboard() {
           data={franchiseOverview}
           rowKey="id"
           emptyMessage="No franchise records are available yet."
+          stickyHeader
+          scrollClassName="max-h-[430px] overflow-auto"
         />
       </DashboardPanel>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
         <DashboardPanel title="Points Table" actionLabel={`${pointsTableRows.length} teams`}>
-          <DataTable
-            columns={columns}
-            data={pointsTableRows}
-            rowKey="team"
-            emptyMessage="No standings are available yet."
-          />
-        </DashboardPanel>
+        <DataTable
+          columns={columns}
+          data={pointsTableRows}
+          rowKey="team"
+          emptyMessage="No standings are available yet."
+          stickyHeader
+          scrollClassName="max-h-[430px] overflow-auto"
+        />
+      </DashboardPanel>
 
         <div className="space-y-6">
           <DashboardPanel title="Season Progress">

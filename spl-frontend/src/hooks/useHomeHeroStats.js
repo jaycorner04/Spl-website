@@ -13,14 +13,8 @@ import {
   TEAMS_UPDATED_STORAGE_KEY,
 } from "../utils/teamSync";
 
-const FALLBACK_STATS = [
-  { value: "8", label: "Franchises" },
-  { value: "96", label: "Players" },
-  { value: "56", label: "Matches" },
-];
-
 export default function useHomeHeroStats() {
-  const [stats, setStats] = useState(FALLBACK_STATS);
+  const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 

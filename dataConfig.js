@@ -62,6 +62,15 @@
           records.filter((record) => String(record.team_id) === String(value)),
       },
       {
+        query: "status",
+        apply: (records, value) =>
+          records.filter(
+            (record) =>
+              String(record.status || "").toLowerCase() ===
+              String(value).toLowerCase()
+          ),
+      },
+      {
         query: "role",
         apply: (records, value) =>
           records.filter(

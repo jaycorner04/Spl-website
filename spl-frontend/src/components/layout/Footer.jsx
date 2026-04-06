@@ -47,16 +47,20 @@ export default function Footer() {
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              {socialLinks.map(({ icon: Icon, href, label }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition-all duration-300 hover:border-[#c86d93]/40 hover:bg-[#853953]/18 hover:text-[#ffd9e8]"
-                >
-                  <Icon size={18} />
-                </a>
-              ))}
+              {socialLinks.map((link) => {
+                const SocialIcon = link.icon;
+
+                return (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    aria-label={link.label}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition-all duration-300 hover:border-[#c86d93]/40 hover:bg-[#853953]/18 hover:text-[#ffd9e8]"
+                  >
+                    <SocialIcon size={18} />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -137,11 +141,11 @@ export default function Footer() {
         <div className="mt-10 border-t border-white/10 pt-6">
           <div className="flex flex-col gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
             <p className="text-sm text-slate-400">
-              © 2026 SPL Raynx. All rights reserved.
+              Copyright 2026 SPL Raynx. All rights reserved.
             </p>
 
             <p className="text-sm text-slate-400">
-      Season 1 · Software Premier League
+              Season 1 | Software Premier League
             </p>
           </div>
         </div>

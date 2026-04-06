@@ -66,6 +66,12 @@ try {
   Write-Host "Validating runtime environment"
   npm run validate:env
 
+  Write-Host "Creating database backup"
+  npm run db:backup
+
+  Write-Host "Running database migrations"
+  npm run db:migrate
+
   Write-Host "Checking database connectivity"
   npm run db:health
 }
@@ -83,6 +89,15 @@ if ($service) {
 
   Write-Host "Starting service $ServiceName"
   Start-Service -Name $ServiceName -ErrorAction Stop
+
+  Push-Location $appRoot
+  try {
+    Write-Host "Running post-start monitoring check"
+    npm run monitor:health
+  }
+  finally {
+    Pop-Location
+  }
 }
 else {
   Write-Warning "Windows service '$ServiceName' was not found. Register the Node service once, then rerun deployment."

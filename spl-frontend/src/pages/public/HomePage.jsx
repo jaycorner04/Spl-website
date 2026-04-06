@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import LiveMatchBanner from "../../components/match/LiveMatchBanner";
 import AnnouncementCardSection from "../../components/match/AnnouncementCardSection";
 import AnnouncementPopup from "../../components/match/AnnouncementPopup";
@@ -9,15 +9,16 @@ import TopPerformersSection from "../../components/player/TopPerformersSection";
 import LatestNewsSection from "../../components/common/LatestNewsSection";
 import SponsorSection from "../../components/common/SponsorSection";
 import SeasonStatsBar from "../../components/dashboard/SeasonStatsBar";
-import { defaultAnnouncementItems } from "../../components/match/AnnouncementCardSection";
 import useHomeContent from "../../hooks/useHomeContent";
 import useHomeHeroStats from "../../hooks/useHomeHeroStats";
 import useTopPerformers from "../../hooks/useTopPerformers";
 
+function getArrayOrEmpty(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 export default function HomePage() {
-  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
-  const [shouldRenderHeroVideo, setShouldRenderHeroVideo] = useState(false);
-  const [heroVideoSrc, setHeroVideoSrc] = useState("");
+  const [isAnnouncementPopupOpen, setIsAnnouncementPopupOpen] = useState(true);
   const heroVideoUrl = String(import.meta.env.VITE_HERO_VIDEO_URL || "").trim();
   const heroVideoEnabled =
     import.meta.env.VITE_ENABLE_HERO_VIDEO === "true" && heroVideoUrl.length > 0;
@@ -33,18 +34,21 @@ export default function HomePage() {
     error: topPerformersError,
     loading: topPerformersLoading,
   } = useTopPerformers();
-  const announcementItems =
-    Array.isArray(homeContent?.announcements) && homeContent.announcements.length > 0
-      ? homeContent.announcements
-      : defaultAnnouncementItems;
-  const topPerformerItems =
-    Array.isArray(topPerformers) && topPerformers.length > 0
+  const liveAnnouncements = getArrayOrEmpty(homeContent?.announcements);
+  const announcementItems = liveAnnouncements;
+  const liveTopPerformerItems =
+    topPerformers.length > 0
       ? topPerformers
-      : homeContent?.topPerformers;
+      : getArrayOrEmpty(homeContent?.topPerformers);
+  const topPerformerItems =
+    liveTopPerformerItems.length > 0 ? liveTopPerformerItems : [];
+  const closeAnnouncementPopup = useCallback(() => {
+    setIsAnnouncementPopupOpen(false);
+  }, []);
 
-  useEffect(() => {
+  const shouldRenderHeroVideo = useMemo(() => {
     if (typeof window === "undefined") {
-      return;
+      return false;
     }
 
     const prefersReducedMotion = window.matchMedia?.(
@@ -52,36 +56,26 @@ export default function HomePage() {
     )?.matches;
     const isDesktopViewport = window.matchMedia?.("(min-width: 1024px)")?.matches;
     const saveDataEnabled = Boolean(window.navigator?.connection?.saveData);
-    const shouldLoadHeroVideo = Boolean(
+
+    return Boolean(
       heroVideoEnabled &&
+        heroVideoUrl &&
         isDesktopViewport &&
         !prefersReducedMotion &&
         !saveDataEnabled
     );
-
-    setShouldRenderHeroVideo(false);
-    setHeroVideoSrc("");
-
-    if (shouldLoadHeroVideo) {
-      setHeroVideoSrc(heroVideoUrl);
-      setShouldRenderHeroVideo(true);
-    }
-
-    if (announcementItems.length > 0) {
-      setShowAnnouncementPopup(true);
-    }
-  }, [announcementItems.length, heroVideoEnabled, heroVideoUrl]);
+  }, [heroVideoEnabled, heroVideoUrl]);
 
   return (
     <>
       <AnnouncementPopup
-        open={showAnnouncementPopup}
+        open={isAnnouncementPopupOpen && announcementItems.length > 0}
         items={announcementItems}
-        onClose={() => setShowAnnouncementPopup(false)}
+        onClose={closeAnnouncementPopup}
       />
 
       <section className="relative overflow-hidden bg-[#07111f]">
-        {shouldRenderHeroVideo && heroVideoSrc ? (
+        {shouldRenderHeroVideo ? (
           <div className="absolute inset-0">
             <video
               autoPlay
@@ -91,7 +85,7 @@ export default function HomePage() {
               preload="none"
               className="h-full w-full object-cover brightness-110 contrast-110 saturate-125"
             >
-              <source src={heroVideoSrc} type="video/mp4" />
+              <source src={heroVideoUrl} type="video/mp4" />
               Your browser does not support the video tag.
             </video>
           </div>
@@ -101,7 +95,7 @@ export default function HomePage() {
 
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,21,37,0.30)_0%,rgba(11,16,32,0.22)_18%,rgba(15,59,46,0.16)_38%,rgba(12,74,110,0.16)_58%,rgba(30,58,138,0.16)_74%,rgba(124,45,18,0.12)_88%,rgba(17,24,39,0.20)_100%)]" />
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-78px)] w-full max-w-[1440px] items-center px-4 py-10 sm:min-h-[calc(100vh-86px)] sm:px-6 md:py-14 lg:px-8 xl:px-10">
+        <div className="spl-home-shell relative z-10 flex min-h-[calc(100vh-78px)] w-full items-center py-10 sm:min-h-[calc(100vh-86px)] md:py-14">
           <div className="flex w-full flex-col items-center text-center">
             <p className="mb-4 font-condensed text-xs uppercase tracking-[0.35em] text-[#f0b4cb] sm:text-sm md:text-base">
               Raynx Systems Presents
@@ -118,9 +112,9 @@ export default function HomePage() {
             </div>
 
             <p className="mt-5 max-w-3xl text-sm leading-6 text-slate-100 drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] sm:text-base sm:leading-7 md:text-lg md:leading-8 lg:text-[1.15rem]">
-              India&apos;s premier internal software cricket league — where
-              engineering meets the crease. A competitive weekend platform for
-              software professionals to play, track, and celebrate cricket.
+              India's premier internal software cricket league where engineering
+              meets the crease. A competitive weekend platform for software
+              professionals to play, track, and celebrate cricket.
             </p>
 
             <div className="mt-8 flex w-full flex-col items-center justify-center gap-4 sm:flex-row">
@@ -158,7 +152,7 @@ export default function HomePage() {
 
             {heroStatsError ? (
               <p className="mt-4 text-xs text-slate-200">
-                Live league stats are temporarily unavailable. Showing fallback values.
+                Live league stats are temporarily unavailable right now.
               </p>
             ) : heroStatsLoading ? (
               <p className="mt-4 text-xs text-slate-200">Refreshing live league stats...</p>
@@ -167,55 +161,58 @@ export default function HomePage() {
         </div>
       </section>
       <div className="spl-theme-surface">
-  {homeContentError ? (
-    <div className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
-      Home page live content is temporarily unavailable. Showing the latest fallback content.
-    </div>
-  ) : homeContentLoading ? (
-    <div className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
-      Refreshing latest home page content...
-    </div>
-  ) : null}
+        {homeContentError ? (
+          <div className="spl-home-shell pb-2 text-center text-xs text-slate-500">
+            Home page live content is temporarily unavailable right now.
+          </div>
+        ) : homeContentLoading ? (
+          <div className="spl-home-shell pb-2 text-center text-xs text-slate-500">
+            Refreshing latest home page content...
+          </div>
+        ) : null}
 
-  <div className="pt-8 md:pt-10">
-    <LiveMatchBanner />
-  </div>
+        <div className="pt-8 md:pt-10">
+          <LiveMatchBanner />
+        </div>
 
-  <div id="announcements">
-    <AnnouncementCardSection items={announcementItems} />
-  </div>
+        <div id="announcements">
+          <AnnouncementCardSection items={announcementItems} allowFallback={false} />
+        </div>
 
-  <div id="latest-news">
-    <LatestNewsSection items={homeContent?.latestNews} />
-  </div>
+        <div id="latest-news">
+          <LatestNewsSection
+            items={getArrayOrEmpty(homeContent?.latestNews)}
+            allowFallback={false}
+          />
+        </div>
 
-  <div id="franchises">
-    <FranchiseSection />
-  </div>
+        <div id="franchises">
+          <FranchiseSection />
+        </div>
 
-  <div id="points-table">
-    <PointsTableSection standingsData={homeContent?.standings} />
-  </div>
+        <div id="points-table">
+          <PointsTableSection standingsData={homeContent?.standings} allowFallback={false} />
+        </div>
 
-  <div id="top-performers">
-    <TopPerformersSection items={topPerformerItems} />
-    {topPerformersError ? (
-      <p className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
-        Top performer scores are temporarily unavailable. Showing the latest cached lineup.
-      </p>
-    ) : topPerformersLoading ? (
-      <p className="px-4 pb-2 text-center text-xs text-slate-500 sm:px-6 lg:px-8 xl:px-10">
-        Refreshing live top performer scores...
-      </p>
-    ) : null}
-  </div>
+        <div id="top-performers">
+          <TopPerformersSection items={topPerformerItems} allowFallback={false} />
+          {topPerformersError ? (
+            <p className="spl-home-shell pb-2 text-center text-xs text-slate-500">
+              Top performer scores are temporarily unavailable right now.
+            </p>
+          ) : topPerformersLoading ? (
+            <p className="spl-home-shell pb-2 text-center text-xs text-slate-500">
+              Refreshing live top performer scores...
+            </p>
+          ) : null}
+        </div>
 
-  <div id="sponsors">
-    <SponsorSection sponsorsData={homeContent?.sponsors} />
-  </div>
+        <div id="sponsors">
+          <SponsorSection sponsorsData={homeContent?.sponsors} allowFallback={false} />
+        </div>
 
-  <SeasonStatsBar />
-</div>
+        <SeasonStatsBar />
+      </div>
     </>
   );
 }

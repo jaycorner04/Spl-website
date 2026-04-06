@@ -3,6 +3,10 @@ export function validateEmail(email) {
   return emailRegex.test(email);
 }
 
+export function validateAllowedRegistrationEmail(email) {
+  return /^[^\s@]+@gmail\.com$/i.test(String(email || "").trim());
+}
+
 export function validatePassword(password) {
   const rules = {
     minLength: password.length >= 8,

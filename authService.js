@@ -29,6 +29,11 @@ function normalizeEmail(email = "") {
   return String(email).trim().toLowerCase();
 }
 
+function isValidRegistrationEmail(email = "") {
+  const normalizedEmail = normalizeEmail(email);
+  return /^[^\s@]+@gmail\.com$/i.test(normalizedEmail);
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const iterations = 120000;
   const keyLength = 64;
@@ -82,6 +87,7 @@ function sanitizeAuthUser(userRecord) {
     franchiseId: userRecord.franchiseId ?? null,
     role: userRecord.role,
     status: userRecord.status,
+    avatar: userRecord.avatar || "",
     createdAt: userRecord.createdAt,
   };
 }
@@ -189,6 +195,7 @@ function mapAuthUserRecord(record = {}) {
     keyLength: record.key_length,
     digest: record.digest,
     passwordHash: record.password_hash,
+    avatar: record.avatar,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
@@ -212,6 +219,7 @@ SELECT TOP 1
   key_length,
   digest,
   password_hash,
+  avatar,
   created_at,
   updated_at
 FROM dbo.auth_users
@@ -243,6 +251,7 @@ SELECT TOP 1
   key_length,
   digest,
   password_hash,
+  avatar,
   created_at,
   updated_at
 FROM dbo.auth_users
@@ -298,18 +307,23 @@ function buildFranchiseApprovalNotes({
   fullName,
   email,
   employeeId,
+  address,
+  website,
 }) {
   const meta = JSON.stringify({
     franchiseId,
     userId,
+    franchiseName,
+    fullName,
+    email,
+    employeeId,
+    address,
+    website,
   });
 
   return [
     `${FRANCHISE_APPROVAL_META_PREFIX}${meta}`,
     `Franchise registration submitted for ${franchiseName}.`,
-    `Owner: ${fullName}`,
-    `Email: ${email}`,
-    `Employee ID: ${employeeId}`,
   ].join("\n");
 }
 
@@ -405,15 +419,16 @@ VALUES (
       .input("key_length", sql.Int, passwordData.keyLength)
       .input("digest", sql.NVarChar(50), passwordData.digest)
       .input("password_hash", sql.NVarChar(255), passwordData.passwordHash)
+      .input("avatar", sql.NVarChar(500), null)
       .input("created_at", sql.NVarChar(64), createdAt)
       .query(`
 INSERT INTO dbo.auth_users (
   id, full_name, email, employee_id, franchise_id, role, status, salt, iterations,
-  key_length, digest, password_hash, created_at
+  key_length, digest, password_hash, avatar, created_at
 )
 VALUES (
   @id, @full_name, @email, @employee_id, @franchise_id, @role, @status, @salt, @iterations,
-  @key_length, @digest, @password_hash, @created_at
+  @key_length, @digest, @password_hash, @avatar, @created_at
 );
 `);
 
@@ -439,6 +454,8 @@ VALUES (
           fullName,
           email,
           employeeId,
+          address: normalizedAddress,
+          website: normalizedWebsite,
         })
       )
       .query(`
@@ -464,9 +481,10 @@ VALUES (
       employeeId,
       franchiseId: nextFranchiseId,
       role: "franchise_admin",
-      status: "Active",
-      createdAt,
-    }),
+    status: "Active",
+    avatar: "",
+    createdAt,
+  }),
     message:
       "Franchise account created. You can manage your franchise now. It will appear on the home page only after super admin approval.",
     listingApprovalPending: true,
@@ -500,6 +518,12 @@ async function registerUser({
     throw error;
   }
 
+  if (!isValidRegistrationEmail(normalizedEmail)) {
+    const error = new Error("Add valid Gmail account.");
+    error.statusCode = 400;
+    throw error;
+  }
+
   if (!normalizedEmployeeId) {
     const error = new Error("Employee ID is required.");
     error.statusCode = 400;
@@ -518,7 +542,7 @@ async function registerUser({
 
   if (role && !PUBLIC_REGISTRATION_ROLES.has(role)) {
     const error = new Error(
-      "Public registration only supports fan user and franchise admin accounts."
+      "Public registration only supports fan user and franchise admin accounts. Staff and admin accounts are created internally."
     );
     error.statusCode = 403;
     throw error;
@@ -567,6 +591,7 @@ WHERE employee_id = @employee_id;
     franchiseId: null,
     role: "fan_user",
     status: "Active",
+    avatar: "",
     createdAt: new Date().toISOString(),
     ...passwordData,
   };
@@ -584,15 +609,16 @@ WHERE employee_id = @employee_id;
     .input("key_length", sql.Int, nextUser.keyLength)
     .input("digest", sql.NVarChar(50), nextUser.digest)
     .input("password_hash", sql.NVarChar(255), nextUser.passwordHash)
+    .input("avatar", sql.NVarChar(500), nextUser.avatar)
     .input("created_at", sql.NVarChar(64), nextUser.createdAt)
     .query(`
 INSERT INTO dbo.auth_users (
   id, full_name, email, employee_id, franchise_id, role, status, salt, iterations,
-  key_length, digest, password_hash, created_at
+  key_length, digest, password_hash, avatar, created_at
 )
 VALUES (
   @id, @full_name, @email, @employee_id, @franchise_id, @role, @status, @salt, @iterations,
-  @key_length, @digest, @password_hash, @created_at
+  @key_length, @digest, @password_hash, @avatar, @created_at
 );
 `);
 
@@ -863,6 +889,25 @@ WHERE id = @id;
   };
 }
 
+async function updateUserAvatar(userId, avatar) {
+  const pool = await initializeDatabase();
+  const updatedAt = new Date().toISOString();
+
+  await pool.request()
+    .input("id", sql.Int, Number(userId))
+    .input("avatar", sql.NVarChar(500), String(avatar || "").trim() || null)
+    .input("updated_at", sql.NVarChar(64), updatedAt)
+    .query(`
+UPDATE dbo.auth_users
+SET
+  avatar = @avatar,
+  updated_at = @updated_at
+WHERE id = @id;
+`);
+
+  return findUserById(userId);
+}
+
 module.exports = {
   canAccessFranchiseDashboard,
   createSessionToken,
@@ -875,4 +920,5 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   syncFranchiseRegistrationApproval,
+  updateUserAvatar,
 };

@@ -30,11 +30,6 @@ export default function FranchiseSection() {
     [franchises]
   );
 
-  const franchiseIds = useMemo(
-    () => new Set(approvedFranchises.map((item) => String(item.id))),
-    [approvedFranchises]
-  );
-
   const formattedFranchises = useMemo(() => {
     const linkedTeamsByFranchiseId = teams.reduce((accumulator, team) => {
       const franchiseId = String(team.franchise_id || "");
@@ -113,13 +108,13 @@ export default function FranchiseSection() {
       });
 
     return [...franchiseCards, ...standaloneCards];
-  }, [allFranchiseIds, approvedFranchises, franchiseIds, teams]);
+  }, [allFranchiseIds, approvedFranchises, teams]);
 
   const loading = loadingFranchises || loadingTeams;
   const error = franchisesError || teamsError;
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-5 sm:py-14 lg:px-6 xl:px-8">
+    <section className="spl-home-shell relative z-10 w-full py-12 sm:py-14">
       <SectionHeader title="THE" highlight="FRANCHISES" darkMode={false} />
 
       {loading ? (

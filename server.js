@@ -14,12 +14,14 @@ const {
 } = require("./franchiseDashboardService");
 const { getTopPerformers } = require("./topPerformersService");
 const {
+  createAuditLog,
   createItem,
   deleteItem,
   getDatabaseHealth,
   getItem,
   getProjectData,
   initializeDatabase,
+  listAuditLogs,
   listCollection,
   replaceItem,
   setProjectData,
@@ -34,6 +36,7 @@ const {
   requestPasswordReset,
   resetPassword,
   syncFranchiseRegistrationApproval,
+  updateUserAvatar,
 } = require("./authService");
 
 loadEnvConfig();
@@ -41,6 +44,8 @@ loadEnvConfig();
 const PORT = Number.parseInt(process.env.PORT || "4000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
+const API_VERSION = "1.12.0";
+const SERVER_START_TIME = Date.now();
 const MEDIA_DIR = path.join(__dirname, "server-media");
 const FRONTEND_DIST_DIR = path.join(__dirname, "spl-frontend", "dist");
 const FRONTEND_INDEX_PATH = path.join(FRONTEND_DIST_DIR, "index.html");
@@ -125,6 +130,16 @@ const RATE_LIMIT_RULES = [
   },
 ];
 const rateLimitStore = new Map();
+const requestMetrics = {
+  totalRequests: 0,
+  totalErrors: 0,
+  rateLimitedRequests: 0,
+  methodCounts: {},
+  routeCounts: {},
+  statusCounts: {},
+  totalResponseTimeMs: 0,
+};
+const PLAYER_APPROVAL_META_PREFIX = "__SPL_PLAYER_REG__";
 
 function getRequestOrigin(response) {
   return String(response.__request?.headers?.origin || "").trim();
@@ -214,6 +229,57 @@ function sendError(response, statusCode, detail, extraHeaders = {}) {
 function sendEmpty(response, statusCode = 204, extraHeaders = {}) {
   response.writeHead(statusCode, buildResponseHeaders(response, extraHeaders));
   response.end();
+}
+
+function serializeAuditDetail(detail) {
+  if (detail == null || detail === "") {
+    return "";
+  }
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  try {
+    return JSON.stringify(detail);
+  } catch (error) {
+    return String(detail);
+  }
+}
+
+async function appendAuditLogSafe(
+  request,
+  {
+    user = null,
+    action,
+    resourceName,
+    resourceId = null,
+    method,
+    status = "success",
+    detail = "",
+  }
+) {
+  try {
+    const resolvedUser =
+      user ||
+      (await getUserFromAuthorizationHeader(request.headers.authorization));
+
+    await createAuditLog({
+      actorUserId: resolvedUser?.id ?? null,
+      actorEmail: resolvedUser?.email || "anonymous",
+      actorRole: resolvedUser?.role || "anonymous",
+      action,
+      resourceName,
+      resourceId,
+      method: method || request.method,
+      status,
+      detail: serializeAuditDetail(detail),
+      ipAddress: getClientIp(request),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Failed to append audit log:", error);
+  }
 }
 
 function normalizePathname(pathname) {
@@ -330,6 +396,7 @@ function consumeRateLimit(request, pathname) {
   );
 
   if (activeWindow.length >= rule.max) {
+    requestMetrics.rateLimitedRequests += 1;
     const retryAfterSeconds = Math.max(
       1,
       Math.ceil((rule.windowMs - (now - activeWindow[0])) / 1000)
@@ -346,6 +413,45 @@ function consumeRateLimit(request, pathname) {
   activeWindow.push(now);
   rateLimitStore.set(bucketKey, activeWindow);
   return null;
+}
+
+function isMonitoringAuthorized(request) {
+  const monitoringToken = String(process.env.SPL_MONITORING_TOKEN || "").trim();
+
+  if (!monitoringToken) {
+    return NODE_ENV !== "production";
+  }
+
+  const headerToken = String(request.headers["x-monitoring-token"] || "").trim();
+  return headerToken === monitoringToken;
+}
+
+function getMetricsSnapshot() {
+  const averageResponseTimeMs =
+    requestMetrics.totalRequests > 0
+      ? Number(
+          (requestMetrics.totalResponseTimeMs / requestMetrics.totalRequests).toFixed(2)
+        )
+      : 0;
+
+  return {
+    version: API_VERSION,
+    environment: NODE_ENV,
+    uptimeSeconds: Number(((Date.now() - SERVER_START_TIME) / 1000).toFixed(2)),
+    process: {
+      pid: process.pid,
+      memory: process.memoryUsage(),
+    },
+    http: {
+      totalRequests: requestMetrics.totalRequests,
+      totalErrors: requestMetrics.totalErrors,
+      rateLimitedRequests: requestMetrics.rateLimitedRequests,
+      averageResponseTimeMs,
+      methodCounts: requestMetrics.methodCounts,
+      routeCounts: requestMetrics.routeCounts,
+      statusCounts: requestMetrics.statusCounts,
+    },
+  };
 }
 
 async function parseBody(request) {
@@ -475,6 +581,14 @@ async function saveTeamLogoUpload(payload) {
 
 async function saveFranchiseLogoUpload(payload) {
   return saveImageUpload(payload, "franchises", "franchise-logo");
+}
+
+async function saveSponsorLogoUpload(payload) {
+  return saveImageUpload(payload, "sponsors", "sponsor-logo");
+}
+
+async function saveAdminAvatarUpload(payload) {
+  return saveImageUpload(payload, "avatars", "admin-avatar");
 }
 
 function buildHomeStandingsRows(sourceRows, teams) {
@@ -827,6 +941,108 @@ function applyListFilters(resourceName, records, searchParams) {
   return filtered;
 }
 
+function buildPlayerRegistrationApprovalNotes(playerRecord, actor) {
+  const meta = JSON.stringify({
+    playerId: playerRecord.id,
+    playerName: playerRecord.full_name,
+    teamId: playerRecord.team_id,
+    teamName: playerRecord.team_name,
+    role: playerRecord.role,
+    squadRole: playerRecord.squad_role,
+    battingStyle: playerRecord.batting_style,
+    bowlingStyle: playerRecord.bowling_style,
+    email: playerRecord.email,
+    mobile: playerRecord.mobile,
+    createdAt: playerRecord.created_at,
+    franchiseId: actor?.franchiseId ?? null,
+    requestedByUserId: actor?.id ?? null,
+    requestedByName: actor?.fullName || "",
+    requestedByEmail: actor?.email || "",
+  });
+
+  return [
+    `${PLAYER_APPROVAL_META_PREFIX}${meta}`,
+    `Player registration submitted for ${playerRecord.full_name}.`,
+  ].join("\n");
+}
+
+function parsePlayerRegistrationApprovalNotes(notes = "") {
+  const firstLine = String(notes || "").split(/\r?\n/, 1)[0] || "";
+
+  if (!firstLine.startsWith(PLAYER_APPROVAL_META_PREFIX)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(firstLine.slice(PLAYER_APPROVAL_META_PREFIX.length));
+  } catch (error) {
+    return null;
+  }
+}
+
+function buildPlayerRegistrationApproval(playerRecord, actor) {
+  const createdAt = String(playerRecord.created_at || new Date().toISOString());
+  const teamName = String(playerRecord.team_name || "").trim();
+
+  return {
+    request_type: "Player Registration",
+    requested_by: teamName || actor?.fullName || actor?.email || "Franchise",
+    subject: `Approve ${playerRecord.full_name} for ${teamName || `Team ${playerRecord.team_id}`}`,
+    date: createdAt.slice(0, 10),
+    priority: "High",
+    status: "Pending",
+    notes: buildPlayerRegistrationApprovalNotes(playerRecord, actor),
+  };
+}
+
+async function createPlayerRegistrationApproval(playerRecord, actor) {
+  return createItem(
+    "approvals",
+    buildPlayerRegistrationApproval(playerRecord, actor)
+  );
+}
+
+async function syncPlayerRegistrationApproval(approvalRecord) {
+  if (
+    String(approvalRecord?.request_type || "").toLowerCase() !==
+    "player registration"
+  ) {
+    return;
+  }
+
+  const meta = parsePlayerRegistrationApprovalNotes(approvalRecord.notes);
+
+  if (!meta?.playerId) {
+    return;
+  }
+
+  const playerRecord = await getItem("players", Number(meta.playerId));
+
+  if (!playerRecord) {
+    return;
+  }
+
+  const normalizedApprovalStatus = String(
+    approvalRecord.status || ""
+  ).toLowerCase();
+  const nextPlayerStatus =
+    normalizedApprovalStatus === "approved" ? "Active" : "Pending";
+
+  if (String(playerRecord.status || "") === nextPlayerStatus) {
+    return;
+  }
+
+  await replaceItem("players", playerRecord.id, {
+    ...playerRecord,
+    status: nextPlayerStatus,
+  });
+}
+
+async function syncApprovalSideEffects(approvalRecord) {
+  await syncFranchiseRegistrationApproval(approvalRecord);
+  await syncPlayerRegistrationApproval(approvalRecord);
+}
+
 function parseIdentifier(rawIdentifier) {
   const id = Number.parseInt(rawIdentifier, 10);
 
@@ -840,7 +1056,7 @@ function parseIdentifier(rawIdentifier) {
 function buildApiIndex() {
   return {
     name: "SPL SQL API",
-    version: "1.11.0",
+    version: API_VERSION,
     resources: [
       ...Object.keys(RESOURCE_CONFIG).map((resource) => ({
         resource,
@@ -887,6 +1103,10 @@ function buildApiIndex() {
         collection: "/api/admin/shell/",
       },
       {
+        resource: "admin-audit-logs",
+        collection: "/api/admin/audit-logs/",
+      },
+      {
         resource: "auth",
         routes: [
           "/api/auth/register/",
@@ -913,7 +1133,13 @@ function buildApiIndex() {
           "/api/uploads/player-photo/",
           "/api/uploads/team-logo/",
           "/api/uploads/franchise-logo/",
+          "/api/uploads/sponsor-logo/",
+          "/api/uploads/admin-avatar/",
         ],
+      },
+      {
+        resource: "metrics",
+        collection: "/api/metrics/",
       },
     ],
     health: "/api/health/",
@@ -1414,6 +1640,11 @@ async function handleAuthRequest(pathname, request, response) {
       return;
     }
 
+    await appendAuditLogSafe(request, {
+      action: "auth.logout",
+      resourceName: "auth_users",
+      status: "success",
+    });
     sendJson(response, 200, {
       message: "Logged out successfully. Clear the client session token.",
     });
@@ -1430,24 +1661,55 @@ async function handleAuthRequest(pathname, request, response) {
 
     if (pathname === "/api/auth/register") {
       const authResponse = await registerUser(payload);
+      await appendAuditLogSafe(request, {
+        user: authResponse.user,
+        action: "auth.register",
+        resourceName: "auth_users",
+        resourceId: authResponse.user?.id ?? null,
+        status: "success",
+        detail: {
+          email: authResponse.user?.email,
+          role: authResponse.user?.role,
+        },
+      });
       sendJson(response, 201, authResponse);
       return;
     }
 
     if (pathname === "/api/auth/login") {
       const authResponse = await loginUser(payload);
+      await appendAuditLogSafe(request, {
+        user: authResponse.user,
+        action: "auth.login",
+        resourceName: "auth_users",
+        resourceId: authResponse.user?.id ?? null,
+        status: "success",
+      });
       sendJson(response, 200, authResponse);
       return;
     }
 
     if (pathname === "/api/auth/forgot-password") {
       const resetResponse = await requestPasswordReset(payload.email);
+      await appendAuditLogSafe(request, {
+        action: "auth.password_reset_request",
+        resourceName: "auth_users",
+        status: "success",
+        detail: {
+          email: payload.email,
+        },
+      });
       sendJson(response, 200, resetResponse);
       return;
     }
 
     if (pathname === "/api/auth/reset-password") {
       const resetResponse = await resetPassword(payload);
+      await appendAuditLogSafe(request, {
+        action: "auth.password_reset_complete",
+        resourceName: "auth_users",
+        status: "success",
+      });
       sendJson(response, 200, resetResponse);
       return;
     }
@@ -1515,7 +1777,44 @@ async function handleAdminAnalyticsRequest(request, response) {
   sendJson(response, 200, payload);
 }
 
-async function handleAdminShellRequest(request, response) {
+async function handleAdminShellRequest(pathname, request, response) {
+  if (pathname === "/api/admin/shell/profile") {
+    if (request.method !== "PATCH") {
+      sendError(response, 405, "Method not allowed for this route.");
+      return;
+    }
+
+    const user = await requirePrivilegedAccess(request, response);
+
+    if (!user) {
+      return;
+    }
+
+    try {
+      const payload = await parseBody(request);
+      const updatedUser = await updateUserAvatar(user.id, payload?.avatar || "");
+
+      await appendAuditLogSafe(request, {
+        user: updatedUser,
+        action: "admin.profile.update",
+        resourceName: "auth_users",
+        resourceId: updatedUser?.id ?? user.id,
+        status: "success",
+      });
+
+      sendJson(response, 200, {
+        user: updatedUser,
+      });
+    } catch (error) {
+      sendError(
+        response,
+        getErrorStatusCode(error),
+        error.message || "Unable to update the admin profile."
+      );
+    }
+    return;
+  }
+
   if (request.method !== "GET") {
     sendError(response, 405, "Method not allowed for this route.");
     return;
@@ -1529,6 +1828,52 @@ async function handleAdminShellRequest(request, response) {
 
   const payload = await getAdminShellPayload(user);
   sendJson(response, 200, payload);
+}
+
+async function handleAuditLogsRequest(request, response, url) {
+  if (request.method !== "GET") {
+    sendError(response, 405, "Method not allowed for this route.");
+    return;
+  }
+
+  const user = await requireSuperAdminAccess(
+    request,
+    response,
+    "Only the super admin can review audit logs."
+  );
+
+  if (!user) {
+    return;
+  }
+
+  const requestedLimit = Number.parseInt(url.searchParams.get("limit") || "", 10);
+  const limit = Number.isInteger(requestedLimit) ? requestedLimit : 100;
+  const logs = await listAuditLogs({ limit });
+
+  sendJson(response, 200, {
+    total: logs.length,
+    items: logs,
+  });
+}
+
+async function handleMetricsRequest(request, response) {
+  if (request.method !== "GET") {
+    sendError(response, 405, "Method not allowed for this route.");
+    return;
+  }
+
+  if (!isMonitoringAuthorized(request)) {
+    sendError(response, 401, "Monitoring token is missing or invalid.");
+    return;
+  }
+
+  const databaseHealth = await getDatabaseHealth();
+  sendJson(response, 200, {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    database: databaseHealth,
+    metrics: getMetricsSnapshot(),
+  });
 }
 
 async function handleFranchiseDashboardRequest(pathname, request, response, url) {
@@ -1802,11 +2147,43 @@ async function handleAdminSearchRequest(request, response, url) {
   });
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+async function buildProjectDataResponse(resourceName, data) {
+  if (!data) {
+    return null;
+  }
+
+  if (resourceName !== "home") {
+    return data;
+  }
+
+  const [teams, topPerformers] = await Promise.all([
+    listCollection("teams"),
+    getTopPerformers(),
+  ]);
+
+  return {
+    ...data,
+    standings: data?.standings
+      ? {
+          ...data.standings,
+          season: buildHomeStandingsRows(data.standings.season, teams),
+        }
+      : data?.standings,
+    topPerformers,
+  };
+}
+
 async function handleUploadRequest(pathname, request, response) {
   if (
     pathname !== "/api/uploads/player-photo" &&
     pathname !== "/api/uploads/team-logo" &&
-    pathname !== "/api/uploads/franchise-logo"
+    pathname !== "/api/uploads/franchise-logo" &&
+    pathname !== "/api/uploads/sponsor-logo" &&
+    pathname !== "/api/uploads/admin-avatar"
   ) {
     sendError(response, 404, "Upload route not found.");
     return;
@@ -1818,9 +2195,18 @@ async function handleUploadRequest(pathname, request, response) {
   }
 
   const uploadAccess =
-    pathname === "/api/uploads/player-photo" ||
-    pathname === "/api/uploads/team-logo" ||
-    pathname === "/api/uploads/franchise-logo"
+    pathname === "/api/uploads/sponsor-logo"
+      ? await requireRoleAccess(
+          request,
+          response,
+          ["super_admin"],
+          "Only the super admin can upload sponsor assets."
+        )
+      : pathname === "/api/uploads/admin-avatar"
+      ? await requirePrivilegedAccess(request, response)
+      : pathname === "/api/uploads/player-photo" ||
+        pathname === "/api/uploads/team-logo" ||
+        pathname === "/api/uploads/franchise-logo"
       ? await requireFranchiseScopedAccess(
           request,
           response,
@@ -1837,10 +2223,29 @@ async function handleUploadRequest(pathname, request, response) {
     const uploadResult =
       pathname === "/api/uploads/team-logo"
         ? await saveTeamLogoUpload(payload)
-        : pathname === "/api/uploads/franchise-logo"
+      : pathname === "/api/uploads/franchise-logo"
         ? await saveFranchiseLogoUpload(payload)
-        : await savePlayerPhotoUpload(payload);
+      : pathname === "/api/uploads/sponsor-logo"
+        ? await saveSponsorLogoUpload(payload)
+      : pathname === "/api/uploads/admin-avatar"
+        ? await saveAdminAvatarUpload(payload)
+      : await savePlayerPhotoUpload(payload);
 
+    await appendAuditLogSafe(request, {
+      user: uploadAccess,
+      action: "upload.asset",
+      resourceName: pathname.includes("franchise")
+        ? "franchises"
+      : pathname.includes("sponsor")
+        ? "project_content"
+      : pathname.includes("admin-avatar")
+        ? "auth_users"
+      : pathname.includes("team")
+        ? "teams"
+        : "players",
+      status: "success",
+      detail: uploadResult,
+    });
     sendJson(response, 201, uploadResult);
   } catch (error) {
     sendError(response, getErrorStatusCode(error), error.message);
@@ -1848,52 +2253,94 @@ async function handleUploadRequest(pathname, request, response) {
 }
 
 async function handleProjectDataRequest(resourceName, section, request, response) {
-  if (request.method !== "GET") {
+  if (request.method === "GET") {
+    const data = await getProjectData(resourceName);
+
+    if (!data) {
+      sendError(response, 404, "Project API resource not found.");
+      return;
+    }
+
+    const finalData = await buildProjectDataResponse(resourceName, data);
+
+    if (!section) {
+      sendJson(response, 200, finalData);
+      return;
+    }
+
+    const config = PROJECT_DATA_CONFIG[resourceName];
+    const sectionKey = config.sections?.[section];
+
+    if (!sectionKey) {
+      sendError(response, 404, "Project API section not found.");
+      return;
+    }
+
+    sendJson(response, 200, finalData[sectionKey]);
+    return;
+  }
+
+  if (!["PUT", "PATCH"].includes(request.method)) {
     sendError(response, 405, "Method not allowed for this route.");
     return;
   }
 
-  const data = await getProjectData(resourceName);
+  const user = await requireRoleAccess(
+    request,
+    response,
+    ["super_admin"],
+    "Only the super admin can update website content."
+  );
 
-  if (!data) {
-    sendError(response, 404, "Project API resource not found.");
+  if (!user) {
     return;
   }
 
-  let finalData = data;
+  const data = (await getProjectData(resourceName)) || {};
+  const payload = await parseBody(request);
 
-  if (resourceName === "home") {
-    const [teams, topPerformers] = await Promise.all([
-      listCollection("teams"),
-      getTopPerformers(),
-    ]);
-
-    finalData = {
-      ...data,
-      standings: data?.standings
-        ? {
-            ...data.standings,
-            season: buildHomeStandingsRows(data.standings.season, teams),
-          }
-        : data?.standings,
-      topPerformers,
-    };
-  }
-
-  if (!section) {
-    sendJson(response, 200, finalData);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    sendError(response, 400, "Request body must be a JSON object.");
     return;
   }
 
   const config = PROJECT_DATA_CONFIG[resourceName];
-  const sectionKey = config.sections?.[section];
+  const sectionKey = section ? config.sections?.[section] : null;
 
-  if (!sectionKey) {
+  if (section && !sectionKey) {
     sendError(response, 404, "Project API section not found.");
     return;
   }
 
-  sendJson(response, 200, finalData[sectionKey]);
+  const nextData = section
+    ? {
+        ...data,
+        [sectionKey]:
+          request.method === "PATCH" &&
+          isPlainObject(data?.[sectionKey]) &&
+          isPlainObject(payload)
+            ? { ...data[sectionKey], ...payload }
+            : payload,
+      }
+    : request.method === "PATCH" && isPlainObject(data) && isPlainObject(payload)
+      ? { ...data, ...payload }
+      : payload;
+
+  const savedState = await setProjectData(resourceName, nextData);
+  const finalData = await buildProjectDataResponse(resourceName, savedState);
+
+  await appendAuditLogSafe(request, {
+    user,
+    action: `${resourceName}.content.${request.method === "PATCH" ? "patch" : "update"}`,
+    resourceName: "project_content",
+    status: "success",
+    detail: {
+      section: section || null,
+      keys: Object.keys(payload || {}),
+    },
+  });
+
+  sendJson(response, 200, section ? finalData?.[sectionKey] : finalData);
 }
 
 async function handleLiveMatchRequest(request, response) {
@@ -1908,13 +2355,13 @@ async function handleLiveMatchRequest(request, response) {
     return;
   }
 
-  if (
-    !(await requireLiveMatchControlAccess(
-      request,
-      response,
-      "Only the super admin, ops manager, or scorer can update live match data."
-    ))
-  ) {
+  const user = await requireLiveMatchControlAccess(
+    request,
+    response,
+    "Only the super admin, ops manager, or scorer can update live match data."
+  );
+
+  if (!user) {
     return;
   }
 
@@ -1933,6 +2380,15 @@ async function handleLiveMatchRequest(request, response) {
     updatedAt: Date.now(),
   });
 
+  await appendAuditLogSafe(request, {
+    user,
+    action: "live-match.update",
+    resourceName: "live-match",
+    status: "success",
+    detail: {
+      keys: Object.keys(payload || {}),
+    },
+  });
   sendJson(response, 200, savedState);
 }
 
@@ -2016,7 +2472,37 @@ async function handleCollectionRequest(resourceName, request, response, url) {
       return;
     }
 
+    if (resourceName === "players" && writeAccess.role === "franchise_admin") {
+      nextRecord.status = "Pending";
+    }
+
     const savedRecord = await createItem(resourceName, nextRecord);
+
+    if (resourceName === "players" && writeAccess.role === "franchise_admin") {
+      try {
+        await createPlayerRegistrationApproval(savedRecord, writeAccess);
+      } catch (error) {
+        console.error("Failed to create player approval:", error);
+        await deleteItem(resourceName, savedRecord.id).catch((deleteError) => {
+          console.error("Failed to roll back player after approval error:", deleteError);
+        });
+        sendError(
+          response,
+          500,
+          "Player could not be submitted for approval. Please try again."
+        );
+        return;
+      }
+    }
+
+    await appendAuditLogSafe(request, {
+      user: writeAccess,
+      action: `${resourceName}.create`,
+      resourceName,
+      resourceId: savedRecord.id,
+      status: "success",
+      detail: savedRecord,
+    });
     sendJson(response, 201, savedRecord);
     return;
   }
@@ -2098,9 +2584,20 @@ async function handleItemRequest(resourceName, identifier, request, response) {
     const savedRecord = await replaceItem(resourceName, id, updatedRecord);
 
     if (resourceName === "approvals") {
-      await syncFranchiseRegistrationApproval(savedRecord);
+      await syncApprovalSideEffects(savedRecord);
     }
 
+    await appendAuditLogSafe(request, {
+      user: writeAccess,
+      action: `${resourceName}.${request.method === "PATCH" ? "patch" : "update"}`,
+      resourceName,
+      resourceId: savedRecord.id,
+      status: "success",
+      detail: {
+        before: existingRecord,
+        after: savedRecord,
+      },
+    });
     sendJson(response, 200, savedRecord);
     return;
   }
@@ -2120,6 +2617,14 @@ async function handleItemRequest(resourceName, identifier, request, response) {
     }
 
     await deleteItem(resourceName, id);
+    await appendAuditLogSafe(request, {
+      user: writeAccess,
+      action: `${resourceName}.delete`,
+      resourceName,
+      resourceId: id,
+      status: "success",
+      detail: existingRecord,
+    });
     sendEmpty(response);
     return;
   }
@@ -2168,15 +2673,24 @@ async function handleRequest(request, response) {
     sendJson(response, 200, {
       status: "ok",
       timestamp: new Date().toISOString(),
+      version: API_VERSION,
+      uptimeSeconds: Number(((Date.now() - SERVER_START_TIME) / 1000).toFixed(2)),
       ...databaseHealth,
     });
+    return;
+  }
+
+  if (pathname === "/api/metrics") {
+    await handleMetricsRequest(request, response);
     return;
   }
 
   if (
     pathname === "/api/uploads/player-photo" ||
     pathname === "/api/uploads/team-logo" ||
-    pathname === "/api/uploads/franchise-logo"
+    pathname === "/api/uploads/franchise-logo" ||
+    pathname === "/api/uploads/sponsor-logo" ||
+    pathname === "/api/uploads/admin-avatar"
   ) {
     await handleUploadRequest(pathname, request, response);
     return;
@@ -2192,8 +2706,13 @@ async function handleRequest(request, response) {
     return;
   }
 
-  if (pathname === "/api/admin/shell") {
-    await handleAdminShellRequest(request, response);
+  if (pathname === "/api/admin/shell" || pathname === "/api/admin/shell/profile") {
+    await handleAdminShellRequest(pathname, request, response);
+    return;
+  }
+
+  if (pathname === "/api/admin/audit-logs") {
+    await handleAuditLogsRequest(request, response, url);
     return;
   }
 
@@ -2264,6 +2783,27 @@ async function handleRequest(request, response) {
 function createServer() {
   return http.createServer((request, response) => {
     response.__request = request;
+    const startedAt = Date.now();
+    const normalizedPath = normalizePathname(
+      new URL(request.url, `http://${request.headers.host || "localhost"}`).pathname
+    );
+
+    requestMetrics.totalRequests += 1;
+    requestMetrics.methodCounts[request.method] =
+      (requestMetrics.methodCounts[request.method] || 0) + 1;
+    requestMetrics.routeCounts[normalizedPath] =
+      (requestMetrics.routeCounts[normalizedPath] || 0) + 1;
+
+    response.once("finish", () => {
+      requestMetrics.statusCounts[response.statusCode] =
+        (requestMetrics.statusCounts[response.statusCode] || 0) + 1;
+      requestMetrics.totalResponseTimeMs += Date.now() - startedAt;
+
+      if (response.statusCode >= 500) {
+        requestMetrics.totalErrors += 1;
+      }
+    });
+
     handleRequest(request, response).catch((error) => {
       console.error("SPL API error:", error);
 

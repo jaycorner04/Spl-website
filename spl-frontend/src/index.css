@@ -103,6 +103,13 @@ canvas {
   background: linear-gradient(180deg, var(--spl-theme-tint) 0%, #fff7fa 100%);
 }
 
+.spl-home-shell {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+  padding-inline: clamp(12px, 1.8vw, 22px);
+}
+
 .spl-theme-accent {
   color: var(--spl-theme);
 }

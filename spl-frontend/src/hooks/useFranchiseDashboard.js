@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getFranchiseDashboardBudgetTrend,
   getFranchiseDashboardNextMatch,
@@ -16,11 +16,36 @@ const INITIAL_DATA = {
   budgetTrend: null,
 };
 
+function getParamsSignature(params) {
+  try {
+    return JSON.stringify(params || {});
+  } catch {
+    return "__invalid_params__";
+  }
+}
+
 export default function useFranchiseDashboard(params = {}, options = {}) {
   const [data, setData] = useState(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const paramsKey = JSON.stringify(params || {});
+  const paramsSignature = useMemo(() => getParamsSignature(params), [params]);
+  const normalizedParams = useMemo(
+    () => {
+      if (paramsSignature === "__invalid_params__") {
+        return {};
+      }
+
+      try {
+        const parsedParams = JSON.parse(paramsSignature);
+        return parsedParams && typeof parsedParams === "object"
+          ? parsedParams
+          : {};
+      } catch {
+        return {};
+      }
+    },
+    [paramsSignature]
+  );
   const enabled = options.enabled !== false;
 
   useEffect(() => {
@@ -43,11 +68,11 @@ export default function useFranchiseDashboard(params = {}, options = {}) {
 
         const [summary, nextMatch, notices, squadSummary, budgetTrend] =
           await Promise.all([
-            getFranchiseDashboardSummary(params),
-            getFranchiseDashboardNextMatch(params),
-            getFranchiseDashboardNotices(params),
-            getFranchiseDashboardSquadSummary(params),
-            getFranchiseDashboardBudgetTrend(params),
+            getFranchiseDashboardSummary(normalizedParams),
+            getFranchiseDashboardNextMatch(normalizedParams),
+            getFranchiseDashboardNotices(normalizedParams),
+            getFranchiseDashboardSquadSummary(normalizedParams),
+            getFranchiseDashboardBudgetTrend(normalizedParams),
           ]);
 
         if (!isMounted) {
@@ -84,7 +109,7 @@ export default function useFranchiseDashboard(params = {}, options = {}) {
     return () => {
       isMounted = false;
     };
-  }, [enabled, paramsKey]);
+  }, [enabled, normalizedParams]);
 
   return {
     ...data,

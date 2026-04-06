@@ -1,11 +1,23 @@
-﻿const path = require("path");
-const { readFile } = require("fs/promises");
+const path = require("path");
+const { existsSync } = require("fs");
+const { readFile, readdir } = require("fs/promises");
 const sql = require("mssql");
 
 const { PROJECT_DATA_CONFIG, RESOURCE_CONFIG } = require("./dataConfig");
 const { loadEnvConfig, parseBoolean } = require("./envConfig");
 
 const DATA_DIR = path.join(__dirname, "server-data");
+const MIGRATIONS_DIR = path.join(__dirname, "database", "migrations");
+const SCHEMA_MIGRATIONS_TABLE_SQL = `
+IF OBJECT_ID(N'dbo.schema_migrations', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.schema_migrations (
+    id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    migration_name NVARCHAR(255) NOT NULL UNIQUE,
+    applied_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+  );
+END;
+`;
 
 const stringColumn = (length = 255) => ({
   sqlType: sql.NVarChar(length),
@@ -342,6 +354,7 @@ BEGIN
     key_length INT NOT NULL,
     digest NVARCHAR(50) NOT NULL,
     password_hash NVARCHAR(255) NOT NULL,
+    avatar NVARCHAR(500) NULL,
     created_at NVARCHAR(64) NOT NULL,
     updated_at NVARCHAR(64) NULL
   );
@@ -468,60 +481,74 @@ END;
   }
 }
 
+function splitSqlBatches(fileContent = "") {
+  return String(fileContent || "")
+    .split(/^\s*GO\s*$/gim)
+    .map((batch) => batch.trim())
+    .filter(Boolean);
+}
+
+async function ensureMigrationsTable(pool) {
+  await pool.request().query(SCHEMA_MIGRATIONS_TABLE_SQL);
+}
+
+async function getAppliedMigrationNames(pool) {
+  await ensureMigrationsTable(pool);
+
+  const result = await pool.request().query(`
+SELECT migration_name
+FROM dbo.schema_migrations
+ORDER BY migration_name ASC;
+`);
+
+  return new Set(
+    result.recordset.map((record) => String(record.migration_name || ""))
+  );
+}
+
+async function applyMigration(pool, migrationName, fileContent) {
+  const batches = splitSqlBatches(fileContent);
+
+  for (const batch of batches) {
+    await pool.request().query(batch);
+  }
+
+  await pool.request()
+    .input("migration_name", sql.NVarChar(255), migrationName)
+    .query(`
+INSERT INTO dbo.schema_migrations (migration_name)
+VALUES (@migration_name);
+`);
+}
+
+async function runMigrations(pool) {
+  await ensureMigrationsTable(pool);
+
+  if (!path.isAbsolute(MIGRATIONS_DIR) || !MIGRATIONS_DIR.startsWith(__dirname)) {
+    throw new Error("Migration directory must stay inside the project root.");
+  }
+
+  if (!existsSync(MIGRATIONS_DIR)) {
+    return;
+  }
+
+  const appliedMigrationNames = await getAppliedMigrationNames(pool);
+  const migrationFiles = (await readdir(MIGRATIONS_DIR))
+    .filter((fileName) => fileName.toLowerCase().endsWith(".sql"))
+    .sort((left, right) => left.localeCompare(right));
+
+  for (const fileName of migrationFiles) {
+    if (appliedMigrationNames.has(fileName)) {
+      continue;
+    }
+
+    const fileContent = await readFile(path.join(MIGRATIONS_DIR, fileName), "utf8");
+    await applyMigration(pool, fileName, fileContent);
+  }
+}
+
 async function ensureSchema(pool) {
-  await pool.request().query(PROJECT_CONTENT_TABLE_SQL);
-
-  for (const { createTableSql } of Object.values(RESOURCE_TABLES)) {
-    await pool.request().query(createTableSql);
-  }
-
-  for (const { createTableSql } of Object.values(AUTH_TABLES)) {
-    await pool.request().query(createTableSql);
-  }
-
-  await pool.request().query(`
-IF COL_LENGTH(N'dbo.auth_users', N'franchise_id') IS NULL
-BEGIN
-  ALTER TABLE dbo.auth_users
-  ADD franchise_id INT NULL;
-END;
-`);
-
-  await pool.request().query(`
-IF COL_LENGTH(N'dbo.franchises', N'status') IS NULL
-BEGIN
-  ALTER TABLE dbo.franchises
-  ADD status NVARCHAR(50) NULL;
-END;
-`);
-
-  await pool.request().query(`
-IF COL_LENGTH(N'dbo.players', N'squad_role') IS NULL
-BEGIN
-  ALTER TABLE dbo.players
-  ADD squad_role NVARCHAR(50) NULL;
-END;
-`);
-
-  await pool.request().query(`
-;WITH ranked_players AS (
-  SELECT
-    id,
-    ROW_NUMBER() OVER (
-      PARTITION BY COALESCE(team_id, -id)
-      ORDER BY id ASC
-    ) AS row_num
-  FROM dbo.players
-)
-UPDATE players
-SET squad_role = CASE
-  WHEN ranked_players.row_num <= 11 THEN N'Playing XI'
-  ELSE N'Reserve'
-END
-FROM dbo.players AS players
-INNER JOIN ranked_players ON ranked_players.id = players.id
-WHERE players.squad_role IS NULL OR LTRIM(RTRIM(players.squad_role)) = N'';
-`);
+  await runMigrations(pool);
 }
 
 async function readSeedFile(fileName) {
@@ -655,6 +682,7 @@ WHERE email = @email;
       .input("key_length", sql.Int, Number(record.keyLength))
       .input("digest", sql.NVarChar(50), record.digest)
       .input("password_hash", sql.NVarChar(255), record.passwordHash)
+      .input("avatar", sql.NVarChar(500), record.avatar || null)
       .input("created_at", sql.NVarChar(64), record.createdAt)
       .input("updated_at", sql.NVarChar(64), record.updatedAt || null)
       .query(`
@@ -672,6 +700,7 @@ BEGIN
     key_length = @key_length,
     digest = @digest,
     password_hash = @password_hash,
+    avatar = COALESCE(@avatar, avatar),
     created_at = @created_at,
     updated_at = @updated_at
   WHERE email = @email;
@@ -680,11 +709,11 @@ ELSE
 BEGIN
   INSERT INTO dbo.auth_users (
     id, full_name, email, employee_id, franchise_id, role, status, salt, iterations,
-    key_length, digest, password_hash, created_at, updated_at
+    key_length, digest, password_hash, avatar, created_at, updated_at
   )
   VALUES (
     @id, @full_name, @email, @employee_id, @franchise_id, @role, @status, @salt, @iterations,
-    @key_length, @digest, @password_hash, @created_at, @updated_at
+    @key_length, @digest, @password_hash, @avatar, @created_at, @updated_at
   );
 END;
 `);
@@ -913,6 +942,101 @@ OUTPUT INSERTED.content_json;
   return JSON.parse(result.recordset[0].content_json);
 }
 
+function normalizeAuditLogRecord(record = {}) {
+  return {
+    id: Number(record.id || 0),
+    actorUserId: record.actor_user_id != null ? Number(record.actor_user_id) : null,
+    actorEmail: String(record.actor_email || ""),
+    actorRole: String(record.actor_role || ""),
+    action: String(record.action || ""),
+    resourceName: String(record.resource_name || ""),
+    resourceId: record.resource_id != null ? Number(record.resource_id) : null,
+    method: String(record.method || ""),
+    status: String(record.status || ""),
+    detail: String(record.detail || ""),
+    ipAddress: String(record.ip_address || ""),
+    createdAt: String(record.created_at || ""),
+  };
+}
+
+async function createAuditLog(entry = {}) {
+  const pool = await initializeDatabase();
+  const nextId = await getNextId(pool, "audit_logs");
+
+  const result = await pool.request()
+    .input("id", sql.Int, nextId)
+    .input("actor_user_id", sql.Int, entry.actorUserId ?? null)
+    .input("actor_email", sql.NVarChar(255), entry.actorEmail || "")
+    .input("actor_role", sql.NVarChar(50), entry.actorRole || "")
+    .input("action", sql.NVarChar(100), entry.action || "")
+    .input("resource_name", sql.NVarChar(100), entry.resourceName || "")
+    .input("resource_id", sql.Int, entry.resourceId ?? null)
+    .input("method", sql.NVarChar(10), entry.method || "")
+    .input("status", sql.NVarChar(50), entry.status || "")
+    .input("detail", sql.NVarChar(sql.MAX), entry.detail || "")
+    .input("ip_address", sql.NVarChar(100), entry.ipAddress || "")
+    .input("created_at", sql.NVarChar(64), entry.createdAt || new Date().toISOString())
+    .query(`
+INSERT INTO dbo.audit_logs (
+  id,
+  actor_user_id,
+  actor_email,
+  actor_role,
+  action,
+  resource_name,
+  resource_id,
+  method,
+  status,
+  detail,
+  ip_address,
+  created_at
+)
+OUTPUT INSERTED.*
+VALUES (
+  @id,
+  @actor_user_id,
+  @actor_email,
+  @actor_role,
+  @action,
+  @resource_name,
+  @resource_id,
+  @method,
+  @status,
+  @detail,
+  @ip_address,
+  @created_at
+);
+`);
+
+  return normalizeAuditLogRecord(result.recordset[0]);
+}
+
+async function listAuditLogs({ limit = 100 } = {}) {
+  const pool = await initializeDatabase();
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 100, 500));
+  const result = await pool.request()
+    .input("limit", sql.Int, safeLimit)
+    .query(`
+SELECT TOP (@limit)
+  id,
+  actor_user_id,
+  actor_email,
+  actor_role,
+  action,
+  resource_name,
+  resource_id,
+  method,
+  status,
+  detail,
+  ip_address,
+  created_at
+FROM dbo.audit_logs
+ORDER BY id DESC;
+`);
+
+  return result.recordset.map(normalizeAuditLogRecord);
+}
+
 async function getDatabaseHealth() {
   const pool = await initializeDatabase();
   const result = await pool.request().query(`
@@ -923,6 +1047,23 @@ SELECT DB_NAME() AS database_name;
     storage: "sqlserver",
     database: result.recordset[0]?.database_name || getDatabaseName(),
   };
+}
+
+async function getMigrationStatus() {
+  const pool = await initializeDatabase();
+  const result = await pool.request().query(`
+SELECT migration_name, applied_at
+FROM dbo.schema_migrations
+ORDER BY migration_name ASC;
+`);
+
+  return result.recordset.map((record) => ({
+    name: String(record.migration_name || ""),
+    appliedAt:
+      record.applied_at instanceof Date
+        ? record.applied_at.toISOString()
+        : String(record.applied_at || ""),
+  }));
 }
 
 async function closeDatabase() {
@@ -940,12 +1081,18 @@ async function closeDatabase() {
 
 module.exports = {
   closeDatabase,
+  createConnection,
   createItem,
+  createAuditLog,
   deleteItem,
   getDatabaseHealth,
+  getConnectionConfig,
+  getDatabaseName,
   getItem,
+  getMigrationStatus,
   getProjectData,
   initializeDatabase,
+  listAuditLogs,
   listCollection,
   replaceItem,
   setProjectData,

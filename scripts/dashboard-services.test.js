@@ -1,3 +1,7 @@
+process.env.NODE_ENV = process.env.NODE_ENV || "test";
+process.env.SPL_AUTH_SECRET =
+  process.env.SPL_AUTH_SECRET || "spl-dashboard-test-secret";
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 

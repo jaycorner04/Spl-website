@@ -4,15 +4,6 @@ import { getPerformances } from "../api/performancesAPI";
 import { getPlayers } from "../api/playersAPI";
 import { getApiErrorMessage } from "../utils/apiErrors";
 
-const FALLBACK_STATS = [
-  { label: "Total Matches", value: "56" },
-  { label: "Total Runs", value: "8,420" },
-  { label: "Total Wickets", value: "412" },
-  { label: "Sixes", value: "286" },
-  { label: "Fours", value: "714" },
-  { label: "Fans Engaged", value: "12K+" },
-];
-
 const numberFormatter = new Intl.NumberFormat("en-IN");
 
 function toNumber(value) {
@@ -68,7 +59,7 @@ function buildSeasonStats(fixtures, players, performances) {
 }
 
 export default function useSeasonStats() {
-  const [stats, setStats] = useState(FALLBACK_STATS);
+  const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 

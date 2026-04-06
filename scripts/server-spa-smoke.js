@@ -1,3 +1,7 @@
+process.env.NODE_ENV = process.env.NODE_ENV || "test";
+process.env.SPL_AUTH_SECRET =
+  process.env.SPL_AUTH_SECRET || "spl-server-spa-smoke-secret";
+
 const path = require("path");
 const { existsSync } = require("fs");
 

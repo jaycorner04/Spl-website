@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthLeftPanel from "../../components/auth/AuthLeftPanel";
-import RoleSelector, {
-  roleOptions,
-} from "../../components/auth/RoleSelector";
+import RoleSelector from "../../components/auth/RoleSelector";
+import { loginRoleOptions } from "../../components/auth/roleOptions";
 import AuthInput from "../../components/auth/AuthInput";
 import { loginUser } from "../../api/authAPI";
 import { getApiErrorMessage } from "../../utils/apiErrors";
@@ -30,12 +29,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const statusMessage = location.state?.message || "";
-  const selectedRoleMeta = roleOptions.find(
+  const selectedRoleMeta = loginRoleOptions.find(
     (role) => role.value === selectedRole
   );
+  const isPublicRegistrationRole = ["fan_user", "franchise_admin"].includes(
+    selectedRole
+  );
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setForm((prev) => ({
       ...prev,
@@ -86,8 +88,8 @@ export default function LoginPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (!validateForm()) {
       return;
@@ -134,7 +136,7 @@ export default function LoginPage() {
                 to="/"
                 className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-blue-600"
               >
-                <span>←</span>
+                <span>{"<-"}</span>
                 <span>Back to Home Page</span>
               </Link>
             </div>
@@ -164,6 +166,7 @@ export default function LoginPage() {
                   onChange={handleRoleChange}
                   collapsed={Boolean(selectedRole)}
                   onReset={handleRoleReset}
+                  options={loginRoleOptions}
                 />
               </div>
 
@@ -238,17 +241,27 @@ export default function LoginPage() {
                 {isSubmitting ? "Signing In..." : "Sign In"}
               </button>
 
-              <p className="text-center text-sm text-slate-600">
-                Don&apos;t have an account?{" "}
-                <Link
-                  to={
-                    selectedRole ? `/register?role=${selectedRole}` : "/register"
-                  }
-                  className="font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  Register
-                </Link>
-              </p>
+              {isPublicRegistrationRole ? (
+                <p className="text-center text-sm text-slate-600">
+                  Don&apos;t have an account?{" "}
+                  <Link
+                    to={
+                      selectedRole ? `/register?role=${selectedRole}` : "/register"
+                    }
+                    className="font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Register
+                  </Link>
+                </p>
+              ) : selectedRole ? (
+                <p className="text-center text-sm text-slate-600">
+                  Accounts for this role are created internally and cannot be registered publicly.
+                </p>
+              ) : (
+                <p className="text-center text-sm text-slate-600">
+                  Choose a role to continue.
+                </p>
+              )}
             </form>
           </div>
         </div>

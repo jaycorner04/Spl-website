@@ -11,6 +11,7 @@ import {
   createPlayer,
   deletePlayer,
   getPlayers,
+  patchPlayer,
   uploadPlayerPhoto,
   updatePlayer,
 } from "../../api/playersAPI";
@@ -46,6 +47,43 @@ function getPlayerInitials(name = "") {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function getPlayerAvatarStyle(seed = "") {
+  const palettes = [
+    {
+      background: "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)",
+      borderColor: "#bfdbfe",
+      color: "#1d4ed8",
+    },
+    {
+      background: "linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%)",
+      borderColor: "#ddd6fe",
+      color: "#6d28d9",
+    },
+    {
+      background: "linear-gradient(135deg, #dcfce7 0%, #86efac 100%)",
+      borderColor: "#bbf7d0",
+      color: "#15803d",
+    },
+    {
+      background: "linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%)",
+      borderColor: "#fde68a",
+      color: "#b45309",
+    },
+    {
+      background: "linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%)",
+      borderColor: "#fecaca",
+      color: "#b91c1c",
+    },
+  ];
+
+  const normalizedSeed = String(seed || "player");
+  const seedValue = normalizedSeed.split("").reduce((total, character) => {
+    return total + character.charCodeAt(0);
+  }, 0);
+
+  return palettes[seedValue % palettes.length];
 }
 
 function getInputClass(readOnly = false) {
@@ -303,7 +341,57 @@ export default function PlayerManagement() {
     photoInputRef.current?.click();
   };
 
-  const clearPhoto = () => {
+  const syncPlayerPhotoState = (playerId, photo, updatedPlayer = {}) => {
+    const normalizedPhoto = photo || "";
+
+    setSelectedPlayer((prev) =>
+      prev && String(prev.id) === String(playerId)
+        ? {
+            ...prev,
+            ...updatedPlayer,
+            photo: normalizedPhoto,
+          }
+        : prev
+    );
+    setPlayers((prev) =>
+      prev.map((player) =>
+        String(player.id) === String(playerId)
+          ? {
+              ...player,
+              ...updatedPlayer,
+              photo: normalizedPhoto,
+            }
+          : player
+      )
+    );
+    setForm((prev) => ({
+      ...prev,
+      photo: normalizedPhoto,
+    }));
+  };
+
+  const clearPhoto = async () => {
+    if (modalType === "view" && selectedPlayer?.id) {
+      try {
+        setUploadingPhoto(true);
+        setPhotoUploadError("");
+
+        const updatedPlayer = await patchPlayer(selectedPlayer.id, {
+          photo: "",
+        });
+
+        syncPlayerPhotoState(selectedPlayer.id, updatedPlayer?.photo || "", updatedPlayer);
+      } catch (uploadError) {
+        setPhotoUploadError(
+          getApiErrorMessage(uploadError, "Unable to remove player image.")
+        );
+      } finally {
+        setUploadingPhoto(false);
+      }
+
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       photo: "",
@@ -334,11 +422,24 @@ export default function PlayerManagement() {
       setPhotoUploadError("");
 
       const uploadResponse = await uploadPlayerPhoto(file);
+      const nextPhoto = uploadResponse.path || "";
 
-      setForm((prev) => ({
-        ...prev,
-        photo: uploadResponse.path || "",
-      }));
+      if (modalType === "view" && selectedPlayer?.id) {
+        const updatedPlayer = await patchPlayer(selectedPlayer.id, {
+          photo: nextPhoto,
+        });
+
+        syncPlayerPhotoState(
+          selectedPlayer.id,
+          updatedPlayer?.photo || nextPhoto,
+          updatedPlayer
+        );
+      } else {
+        setForm((prev) => ({
+          ...prev,
+          photo: nextPhoto,
+        }));
+      }
     } catch (uploadError) {
       setPhotoUploadError(
         getApiErrorMessage(uploadError, "Unable to upload player image.")
@@ -460,7 +561,45 @@ export default function PlayerManagement() {
 
   const columns = [
     { key: "formattedId", label: "Player ID" },
-    { key: "full_name", label: "Name" },
+    {
+      key: "full_name",
+      label: "Name",
+      render: (row) => {
+        const avatarUrl = row.photo ? getMediaUrl(row.photo) : "";
+        const avatarStyle = getPlayerAvatarStyle(
+          row.team_name || row.full_name || row.formattedId
+        );
+
+        return (
+          <div className="flex min-w-[220px] items-center gap-3">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={row.full_name || "Player"}
+                className="h-10 w-10 rounded-full border border-slate-200 object-cover shadow-sm"
+                loading="lazy"
+              />
+            ) : (
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full border text-xs font-bold uppercase tracking-[0.12em] shadow-sm"
+                style={avatarStyle}
+              >
+                {getPlayerInitials(row.full_name || "PL")}
+              </div>
+            )}
+
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-slate-900">
+                {row.full_name}
+              </p>
+              <p className="truncate text-xs text-slate-500">
+                {row.team_name}
+              </p>
+            </div>
+          </div>
+        );
+      },
+    },
     { key: "team_name", label: "Team" },
     { key: "role", label: "Role" },
     { key: "formattedSalary", label: "Salary" },
@@ -781,35 +920,38 @@ export default function PlayerManagement() {
                       <p className="mt-1 text-sm text-slate-500">
                         Upload a JPG, PNG, or WEBP image up to 5 MB.
                       </p>
+                      {modalType === "view" ? (
+                        <p className="mt-1 text-sm text-slate-500">
+                          Photo changes from this view are saved immediately.
+                        </p>
+                      ) : null}
                       {photoUploadError ? (
                         <p className="mt-2 text-sm text-red-600">{photoUploadError}</p>
                       ) : null}
                     </div>
                   </div>
 
-                  {modalType !== "view" ? (
-                    <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={openPhotoPicker}
+                      disabled={uploadingPhoto}
+                      className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {uploadingPhoto ? "Uploading..." : form.photo ? "Change Image" : "Upload Image"}
+                    </button>
+
+                    {form.photo ? (
                       <button
                         type="button"
-                        onClick={openPhotoPicker}
+                        onClick={clearPhoto}
                         disabled={uploadingPhoto}
-                        className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
                       >
-                        {uploadingPhoto ? "Uploading..." : form.photo ? "Change Image" : "Upload Image"}
+                        Remove
                       </button>
-
-                      {form.photo ? (
-                        <button
-                          type="button"
-                          onClick={clearPhoto}
-                          disabled={uploadingPhoto}
-                          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               </div>
 

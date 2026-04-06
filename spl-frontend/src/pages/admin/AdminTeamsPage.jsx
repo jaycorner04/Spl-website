@@ -25,6 +25,10 @@ import {
   getBadgeColor,
 } from "../../utils/adminFormatters";
 import { downloadCsv } from "../../utils/downloadCsv";
+import {
+  findTeamBrandReference,
+  getFallbackColor,
+} from "../../utils/teamBranding";
 
 const emptyForm = {
   team_name: "",
@@ -48,6 +52,83 @@ function getTeamInitials(name = "") {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function getPlayerInitials(name = "") {
+  return String(name || "")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function getPlayerAvatarStyle(seed = "") {
+  const palettes = [
+    {
+      background: "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)",
+      borderColor: "#bfdbfe",
+      color: "#1d4ed8",
+    },
+    {
+      background: "linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%)",
+      borderColor: "#ddd6fe",
+      color: "#6d28d9",
+    },
+    {
+      background: "linear-gradient(135deg, #dcfce7 0%, #86efac 100%)",
+      borderColor: "#bbf7d0",
+      color: "#15803d",
+    },
+    {
+      background: "linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%)",
+      borderColor: "#fde68a",
+      color: "#b45309",
+    },
+  ];
+
+  const normalizedSeed = String(seed || "player");
+  const seedValue = normalizedSeed.split("").reduce((total, character) => {
+    return total + character.charCodeAt(0);
+  }, 0);
+
+  return palettes[seedValue % palettes.length];
+}
+
+function TeamLogoMark({ team }) {
+  const logoUrl = team?.logo ? getMediaUrl(team.logo) : "";
+  const brandReference = findTeamBrandReference(team?.team_name || "");
+  const BrandIcon = brandReference?.brandIcon || null;
+  const accentColor =
+    brandReference?.logoColor || getFallbackColor(team?.primary_color);
+
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt={`${team?.team_name || "Team"} logo`}
+          className="h-full w-full object-contain p-1.5"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : BrandIcon ? (
+        <BrandIcon
+          className="h-5 w-5"
+          style={{ color: accentColor }}
+          aria-label={`${team?.team_name || "Team"} logo`}
+        />
+      ) : (
+        <span
+          className="font-condensed text-xs font-bold uppercase tracking-[0.16em]"
+          style={{ color: accentColor }}
+        >
+          {getTeamInitials(team?.team_name || "TM")}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function getInputClass(readOnly = false) {
@@ -99,6 +180,7 @@ export default function AdminTeamsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [expandedTeamId, setExpandedTeamId] = useState("");
   const [filters, setFilters] = useState({
     search: "",
     status: "all",
@@ -168,6 +250,23 @@ export default function AdminTeamsPage() {
     return players.reduce((accumulator, player) => {
       const teamId = String(player.team_id || "");
       accumulator[teamId] = (accumulator[teamId] || 0) + 1;
+      return accumulator;
+    }, {});
+  }, [players]);
+
+  const playersByTeamId = useMemo(() => {
+    return players.reduce((accumulator, player) => {
+      const teamId = String(player.team_id || "");
+
+      if (!teamId) {
+        return accumulator;
+      }
+
+      if (!accumulator[teamId]) {
+        accumulator[teamId] = [];
+      }
+
+      accumulator[teamId].push(player);
       return accumulator;
     }, {});
   }, [players]);
@@ -308,6 +407,12 @@ export default function AdminTeamsPage() {
       ...prev,
       [key]: value,
     }));
+  };
+
+  const toggleTeamPlayers = (teamId) => {
+    setExpandedTeamId((prev) =>
+      String(prev) === String(teamId) ? "" : String(teamId)
+    );
   };
 
   const openAddModal = () => {
@@ -549,7 +654,43 @@ export default function AdminTeamsPage() {
 
   const columns = [
     { key: "formattedId", label: "Team ID" },
-    { key: "team_name", label: "Team Name" },
+    {
+      key: "team_name",
+      label: "Team Name",
+      render: (row) => (
+        <div className="flex min-w-0 items-center gap-3">
+          <TeamLogoMark team={row} />
+          <span className="truncate font-medium text-slate-900">
+            {row.team_name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "playersToggle",
+      label: "Players",
+      headerCellClassName: "w-[148px] text-center",
+      cellClassName: "w-[148px] text-center align-middle",
+      render: (row) => {
+        const isExpanded = String(expandedTeamId) === String(row.id);
+
+        return (
+          <div className="flex w-full justify-center">
+            <button
+              type="button"
+              onClick={() => toggleTeamPlayers(row.id)}
+              className={`inline-flex w-[92px] items-center justify-center rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] transition ${
+                isExpanded
+                  ? "border-blue-200 bg-blue-100 text-blue-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
+              }`}
+            >
+              {isExpanded ? "Close" : "Players"}
+            </button>
+          </div>
+        );
+      },
+    },
     { key: "franchiseName", label: "Franchise" },
     { key: "city", label: "City" },
     { key: "vice_coach", label: "Captain" },
@@ -727,6 +868,80 @@ export default function AdminTeamsPage() {
             data={filteredTeams}
             rowKey="id"
             emptyMessage="No teams match the selected filters."
+            headerClassName="bg-slate-50/90"
+            headerCellClassName="text-slate-600"
+            expandedRowIds={expandedTeamId ? [expandedTeamId] : []}
+            expandedRowRender={(row) => {
+              const teamPlayers = playersByTeamId[String(row.id)] || [];
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {row.team_name} Player List
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {teamPlayers.length} players linked to this team
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+                      {row.franchiseName}
+                    </span>
+                  </div>
+
+                  {teamPlayers.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+                      No players are linked to this team yet.
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {teamPlayers.map((player) => {
+                        const avatarUrl = player.photo
+                          ? getMediaUrl(player.photo)
+                          : "";
+                        const avatarStyle = getPlayerAvatarStyle(
+                          player.full_name || player.role || row.team_name
+                        );
+
+                        return (
+                          <div
+                            key={player.id}
+                            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                          >
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={player.full_name || "Player"}
+                                className="h-11 w-11 rounded-full border border-slate-200 object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div
+                                className="flex h-11 w-11 items-center justify-center rounded-full border text-xs font-bold uppercase tracking-[0.14em]"
+                                style={avatarStyle}
+                              >
+                                {getPlayerInitials(player.full_name || "PL")}
+                              </div>
+                            )}
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {player.full_name}
+                              </p>
+                              <p className="mt-1 truncate text-xs text-slate-500">
+                                {player.role}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }}
           />
         )}
       </DashboardPanel>

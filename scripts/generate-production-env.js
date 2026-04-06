@@ -47,6 +47,9 @@ function main() {
   const authSecret =
     getExistingValue(backendExisting, "SPL_AUTH_SECRET") ||
     crypto.randomBytes(48).toString("hex");
+  const monitoringToken =
+    getExistingValue(backendExisting, "SPL_MONITORING_TOKEN") ||
+    crypto.randomBytes(32).toString("hex");
 
   const backendValues = [
     "NODE_ENV=production",
@@ -67,12 +70,18 @@ function main() {
       process.env.DB_PASSWORD || "your_sql_password"
     )}`,
     `SPL_AUTH_SECRET=${authSecret}`,
+    `SPL_MONITORING_TOKEN=${monitoringToken}`,
     `CORS_ALLOWED_ORIGINS=${getExistingValue(
       backendExisting,
       "CORS_ALLOWED_ORIGINS",
       "same-origin"
     )}`,
     `RATE_LIMIT_ENABLED=${getExistingValue(backendExisting, "RATE_LIMIT_ENABLED", "true")}`,
+    `DB_BACKUP_DIR=${getExistingValue(
+      backendExisting,
+      "DB_BACKUP_DIR",
+      "C:\\\\spl-backups"
+    )}`,
     `DB_ENCRYPT=${getExistingValue(backendExisting, "DB_ENCRYPT", process.env.DB_ENCRYPT || "false")}`,
     `DB_TRUST_SERVER_CERTIFICATE=${getExistingValue(
       backendExisting,

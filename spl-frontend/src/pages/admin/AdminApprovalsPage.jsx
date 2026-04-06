@@ -18,8 +18,17 @@ import ExportButton from "../../components/dashboard/ExportButton";
 import Badge from "../../components/common/Badge";
 import ManagementModal from "../../components/dashboard/ManagementModal";
 import { getApprovals, patchApproval } from "../../api/approvalsAPI";
+import { getPlayers } from "../../api/playersAPI";
+import { getTeams } from "../../api/teamsAPI";
 import { getApiErrorMessage } from "../../utils/apiErrors";
 import { downloadCsv } from "../../utils/downloadCsv";
+
+const FRANCHISE_APPROVAL_META_PREFIX = "__SPL_FRANCHISE_REG__";
+const PLAYER_APPROVAL_META_PREFIX = "__SPL_PLAYER_REG__";
+const APPROVAL_META_PREFIXES = [
+  FRANCHISE_APPROVAL_META_PREFIX,
+  PLAYER_APPROVAL_META_PREFIX,
+];
 
 function getApprovalIcon(icon) {
   switch (icon) {
@@ -98,12 +107,243 @@ function getPriorityBadgeColor(priority) {
   return colorMap[priority] || "slate";
 }
 
-function getVisibleApprovalNotes(notes = "") {
+function getApprovalNotesWithoutMeta(notes = "") {
   return String(notes || "")
     .split(/\r?\n/)
-    .filter((line) => !line.startsWith("__SPL_FRANCHISE_REG__"))
+    .map((line) => line.trim())
+    .filter(
+      (line) =>
+        !APPROVAL_META_PREFIXES.some((prefix) => line.startsWith(prefix))
+    )
     .join("\n")
     .trim();
+}
+
+function parseFranchiseApprovalMeta(notes = "") {
+  const firstLine = String(notes || "").split(/\r?\n/, 1)[0] || "";
+
+  if (!firstLine.startsWith(FRANCHISE_APPROVAL_META_PREFIX)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(firstLine.slice(FRANCHISE_APPROVAL_META_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
+
+function parsePlayerApprovalMeta(notes = "") {
+  const firstLine = String(notes || "").split(/\r?\n/, 1)[0] || "";
+
+  if (!firstLine.startsWith(PLAYER_APPROVAL_META_PREFIX)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(firstLine.slice(PLAYER_APPROVAL_META_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
+
+function getApprovalLineValue(lines, label) {
+  const prefix = `${label.toLowerCase()}:`;
+  const matchedLine = lines.find((line) =>
+    line.toLowerCase().startsWith(prefix)
+  );
+
+  return matchedLine ? matchedLine.slice(prefix.length).trim() : "";
+}
+
+function hasApprovalValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function getApprovalContextValue(context, label) {
+  return (
+    context.find((item) => String(item.label) === String(label))?.value || ""
+  );
+}
+
+function getFranchiseApprovalContext(approval) {
+  const notes = String(approval?.notes || "");
+  const meta = parseFranchiseApprovalMeta(notes);
+  const visibleLines = getApprovalNotesWithoutMeta(notes)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const requestType = String(approval?.request_type || "").toLowerCase();
+  const summaryLine = visibleLines.find((line) =>
+    /^franchise registration submitted for\s+/i.test(line)
+  );
+  const franchiseNameMatch = summaryLine?.match(
+    /^franchise registration submitted for\s+(.+?)(?:\.)?$/i
+  );
+  const isFranchiseRegistration =
+    requestType.includes("franchise registration") ||
+    Boolean(meta) ||
+    Boolean(summaryLine) ||
+    visibleLines.some((line) =>
+      /^(owner|email|employee id|address|website):/i.test(line)
+    );
+
+  if (!isFranchiseRegistration) {
+    return [];
+  }
+
+  return [
+    {
+      label: "Franchise Name",
+      value: meta?.franchiseName || franchiseNameMatch?.[1]?.trim() || "",
+    },
+    {
+      label: "Owner Name",
+      value: meta?.fullName || getApprovalLineValue(visibleLines, "Owner"),
+    },
+    {
+      label: "Email ID",
+      value: meta?.email || getApprovalLineValue(visibleLines, "Email"),
+    },
+    {
+      label: "Employee ID",
+      value:
+        meta?.employeeId || getApprovalLineValue(visibleLines, "Employee ID"),
+    },
+    {
+      label: "Address",
+      value: meta?.address || getApprovalLineValue(visibleLines, "Address"),
+    },
+    {
+      label: "Website",
+      value: meta?.website || getApprovalLineValue(visibleLines, "Website"),
+    },
+    {
+      label: "Franchise ID",
+      value: meta?.franchiseId,
+    },
+    {
+      label: "User ID",
+      value: meta?.userId,
+    },
+  ].filter((item) => hasApprovalValue(item.value));
+}
+
+function getPlayerApprovalContext(approval) {
+  const notes = String(approval?.notes || "");
+  const meta = parsePlayerApprovalMeta(notes);
+  const visibleLines = getApprovalNotesWithoutMeta(notes)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const requestType = String(approval?.request_type || "").toLowerCase();
+  const summaryLine = visibleLines.find((line) =>
+    /^player registration submitted for\s+/i.test(line)
+  );
+  const playerNameMatch = summaryLine?.match(
+    /^player registration submitted for\s+(.+?)(?:\.)?$/i
+  );
+  const isPlayerRegistration =
+    requestType.includes("player registration") ||
+    Boolean(meta) ||
+    Boolean(summaryLine) ||
+    visibleLines.some((line) =>
+      /^(team|role|squad role|email|mobile|batting style|bowling style):/i.test(
+        line
+      )
+    );
+
+  if (!isPlayerRegistration) {
+    return [];
+  }
+
+  return [
+    {
+      label: "Team",
+      value: meta?.teamName || getApprovalLineValue(visibleLines, "Team"),
+    },
+    {
+      label: "Player Name",
+      value: meta?.playerName || playerNameMatch?.[1]?.trim() || "",
+    },
+    {
+      label: "Role",
+      value: meta?.role || getApprovalLineValue(visibleLines, "Role"),
+    },
+    {
+      label: "Squad Role",
+      value: meta?.squadRole || getApprovalLineValue(visibleLines, "Squad Role"),
+    },
+    {
+      label: "Email ID",
+      value: meta?.email || getApprovalLineValue(visibleLines, "Email"),
+    },
+    {
+      label: "Mobile",
+      value: meta?.mobile || getApprovalLineValue(visibleLines, "Mobile"),
+    },
+    {
+      label: "Batting Style",
+      value:
+        meta?.battingStyle ||
+        getApprovalLineValue(visibleLines, "Batting Style"),
+    },
+    {
+      label: "Bowling Style",
+      value:
+        meta?.bowlingStyle ||
+        getApprovalLineValue(visibleLines, "Bowling Style"),
+    },
+    {
+      label: "Player ID",
+      value: meta?.playerId,
+    },
+  ].filter((item) => hasApprovalValue(item.value));
+}
+
+function getApprovalContext(approval) {
+  const franchiseContext = getFranchiseApprovalContext(approval);
+
+  if (franchiseContext.length) {
+    return franchiseContext;
+  }
+
+  return getPlayerApprovalContext(approval);
+}
+
+function getVisibleApprovalNotes(approval) {
+  const notes =
+    typeof approval === "string" ? approval : String(approval?.notes || "");
+  const approvalContext =
+    typeof approval === "string" ? [] : getApprovalContext(approval);
+
+  return String(notes || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter(
+      (line) =>
+        !APPROVAL_META_PREFIXES.some((prefix) => line.startsWith(prefix))
+    )
+    .filter((line) => {
+      if (!approvalContext.length) {
+        return true;
+      }
+
+      return !(
+        /^player registration submitted for\s+.+/i.test(line) ||
+        /^franchise registration submitted for\s+.+/i.test(line) ||
+        /^(owner|email|employee id|address|website|team|role|squad role|mobile|batting style|bowling style):/i.test(
+          line
+        )
+      );
+    })
+    .join("\n")
+    .trim();
+}
+
+function isApprovalQueueItem(approval) {
+  return ["Pending", "Escalated"].includes(String(approval?.status || ""));
 }
 
 const APPROVAL_SECTION_META = {
@@ -159,6 +399,13 @@ function getApprovalSectionKey(approval) {
   }
 
   if (
+    combined.includes("__spl_player_reg__") ||
+    requestType.includes("player registration")
+  ) {
+    return "teams";
+  }
+
+  if (
     ["player", "medical", "squad", "transfer", "fitness"].some((keyword) =>
       combined.includes(keyword)
     )
@@ -187,8 +434,7 @@ function getApprovalSectionKey(approval) {
 
 function ApprovalCategoryCard({
   sectionKey,
-  count,
-  pendingCount,
+  queueCount,
   active,
   onClick,
 }) {
@@ -236,24 +482,21 @@ function ApprovalCategoryCard({
 
         <div className="text-right">
           <p className={`font-heading text-4xl leading-none ${meta.countClass}`}>
-            {count}
+            {queueCount}
           </p>
           <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400">
-            Requests
+            Open Requests
           </p>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
+      <div className="mt-4 flex items-center gap-3">
         <p
           className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
             active ? meta.countClass : "text-slate-500"
           }`}
         >
           {active ? "Showing approval list" : "Click to review"}
-        </p>
-        <p className="text-xs text-slate-500">
-          Pending: <span className="font-semibold text-slate-900">{pendingCount}</span>
         </p>
       </div>
     </button>
@@ -262,6 +505,8 @@ function ApprovalCategoryCard({
 
 export default function AdminApprovalsPage() {
   const [approvals, setApprovals] = useState([]);
+  const [players, setPlayers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -271,15 +516,24 @@ export default function AdminApprovalsPage() {
     priority: "all",
   });
   const [activeSection, setActiveSection] = useState("all");
+  const [listMode, setListMode] = useState("all");
   const [selectedApproval, setSelectedApproval] = useState(null);
+  const [selectedApprovalTeamId, setSelectedApprovalTeamId] = useState(null);
+  const [showSelectedTeamPlayers, setShowSelectedTeamPlayers] = useState(false);
   const approvalsListRef = useRef(null);
 
   const loadApprovals = async () => {
     try {
       setLoading(true);
       setError("");
-      const response = await getApprovals();
-      setApprovals(Array.isArray(response) ? response : []);
+      const [approvalsResponse, teamsResponse, playersResponse] = await Promise.all([
+        getApprovals(),
+        getTeams(),
+        getPlayers(),
+      ]);
+      setApprovals(Array.isArray(approvalsResponse) ? approvalsResponse : []);
+      setTeams(Array.isArray(teamsResponse) ? teamsResponse : []);
+      setPlayers(Array.isArray(playersResponse) ? playersResponse : []);
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to load approvals."));
     } finally {
@@ -292,6 +546,10 @@ export default function AdminApprovalsPage() {
   }, []);
 
   const handleFilterChange = (key, value) => {
+    if (key === "status" && value !== "all") {
+      setListMode("all");
+    }
+
     setFilters((prev) => ({
       ...prev,
       [key]: value,
@@ -307,6 +565,89 @@ export default function AdminApprovalsPage() {
     [approvals]
   );
 
+  const selectedApprovalContext = useMemo(
+    () => getApprovalContext(selectedApproval),
+    [selectedApproval]
+  );
+
+  const selectedApprovalSectionKey = useMemo(
+    () =>
+      selectedApproval?.approvalSection || getApprovalSectionKey(selectedApproval),
+    [selectedApproval]
+  );
+
+  const selectedApprovalTeams = useMemo(() => {
+    if (!selectedApproval || selectedApprovalSectionKey !== "franchises") {
+      return [];
+    }
+
+    const approvalMeta = parseFranchiseApprovalMeta(selectedApproval.notes);
+    const franchiseId = String(
+      approvalMeta?.franchiseId ||
+        getApprovalContextValue(selectedApprovalContext, "Franchise ID") ||
+        ""
+    ).trim();
+
+    if (!franchiseId) {
+      return [];
+    }
+
+    return [...teams]
+      .filter(
+        (team) => String(team.franchise_id || "").trim() === franchiseId
+      )
+      .sort((left, right) =>
+        String(left.team_name || "").localeCompare(String(right.team_name || ""))
+      );
+  }, [
+    selectedApproval,
+    selectedApprovalContext,
+    selectedApprovalSectionKey,
+    teams,
+  ]);
+
+  useEffect(() => {
+    if (!selectedApprovalTeams.length) {
+      setSelectedApprovalTeamId(null);
+      setShowSelectedTeamPlayers(false);
+      return;
+    }
+
+    const hasSelectedTeam = selectedApprovalTeams.some(
+      (team) => String(team.id) === String(selectedApprovalTeamId)
+    );
+
+    if (!hasSelectedTeam) {
+      setSelectedApprovalTeamId(selectedApprovalTeams[0].id);
+      setShowSelectedTeamPlayers(false);
+    }
+  }, [selectedApprovalTeamId, selectedApprovalTeams]);
+
+  const selectedApprovalActiveTeam = useMemo(
+    () =>
+      selectedApprovalTeams.find(
+        (team) => String(team.id) === String(selectedApprovalTeamId)
+      ) || null,
+    [selectedApprovalTeamId, selectedApprovalTeams]
+  );
+
+  const selectedApprovalTeamPlayers = useMemo(() => {
+    if (!selectedApprovalActiveTeam) {
+      return [];
+    }
+
+    return [...players]
+      .filter(
+        (player) =>
+          String(player.team_id || "") === String(selectedApprovalActiveTeam.id) ||
+          String(player.team_name || "").toLowerCase() ===
+            String(selectedApprovalActiveTeam.team_name || "").toLowerCase()
+      )
+      .sort((left, right) =>
+        String(left.full_name || "").localeCompare(String(right.full_name || ""))
+      );
+  }, [players, selectedApprovalActiveTeam]);
+
   const sectionCards = useMemo(() => {
     return Object.keys(APPROVAL_SECTION_META).map((sectionKey) => {
       const sectionRecords =
@@ -318,8 +659,7 @@ export default function AdminApprovalsPage() {
 
       return {
         sectionKey,
-        count: sectionRecords.length,
-        pendingCount: sectionRecords.filter(
+        queueCount: sectionRecords.filter(
           (item) => item.status === "Pending" || item.status === "Escalated"
         ).length,
       };
@@ -341,12 +681,18 @@ export default function AdminApprovalsPage() {
         filters.priority === "all" || item.priority === filters.priority;
       const matchesSection =
         activeSection === "all" || item.approvalSection === activeSection;
+      const matchesListMode =
+        listMode !== "queue" || isApprovalQueueItem(item);
 
       return (
-        matchesSearch && matchesStatus && matchesPriority && matchesSection
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority &&
+        matchesSection &&
+        matchesListMode
       );
     });
-  }, [activeSection, approvalsWithSection, filters]);
+  }, [activeSection, approvalsWithSection, filters, listMode]);
 
   const summaryCards = useMemo(() => {
     const pending = approvals.filter((item) => item.status === "Pending").length;
@@ -398,8 +744,35 @@ export default function AdminApprovalsPage() {
 
   const activeSectionMeta = APPROVAL_SECTION_META[activeSection];
 
+  const handleViewTeam = (team) => {
+    if (!team?.id) {
+      return;
+    }
+
+    if (String(selectedApprovalTeamId || "") !== String(team.id)) {
+      setShowSelectedTeamPlayers(false);
+    }
+
+    setSelectedApprovalTeamId(team.id);
+  };
+
+  const handleViewTeamPlayers = () => {
+    if (!selectedApprovalActiveTeam) {
+      return;
+    }
+
+    setShowSelectedTeamPlayers((current) => !current);
+  };
+
   const handleSectionOpen = (sectionKey) => {
     setActiveSection(sectionKey);
+    setListMode("queue");
+    setFilters((prev) => ({
+      ...prev,
+      search: "",
+      status: "all",
+      priority: "all",
+    }));
 
     window.requestAnimationFrame(() => {
       approvalsListRef.current?.scrollIntoView({
@@ -442,7 +815,7 @@ export default function AdminApprovalsPage() {
         Date: item.date,
         Priority: item.priority,
         Status: item.status,
-        Notes: getVisibleApprovalNotes(item.notes),
+        Notes: getVisibleApprovalNotes(item),
       }))
     );
   };
@@ -593,8 +966,7 @@ export default function AdminApprovalsPage() {
           <ApprovalCategoryCard
             key={item.sectionKey}
             sectionKey={item.sectionKey}
-            count={item.count}
-            pendingCount={item.pendingCount}
+            queueCount={item.queueCount}
             active={activeSection === item.sectionKey}
             onClick={() => handleSectionOpen(item.sectionKey)}
           />
@@ -603,7 +975,9 @@ export default function AdminApprovalsPage() {
 
       <div ref={approvalsListRef}>
       <DashboardPanel
-        title={`${activeSectionMeta.label} Approval List`}
+        title={`${activeSectionMeta.label} ${
+          listMode === "queue" ? "New Requests" : "Approval List"
+        }`}
         bodyClassName="space-y-4"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
@@ -620,12 +994,36 @@ export default function AdminApprovalsPage() {
                 {activeSectionMeta.label}
               </span>
             </div>
+            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+              View mode:{" "}
+              <span className="font-semibold text-slate-700">
+                {listMode === "queue"
+                  ? "New requests only"
+                  : "Full approval history"}
+              </span>
+            </div>
           </div>
 
           <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setListMode((prev) => (prev === "queue" ? "all" : "queue"))
+              }
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              {listMode === "queue" ? "Show Full History" : "Show New Requests"}
+            </button>
             <ExportButton label="Export Approvals" onClick={handleExport} />
           </div>
         </div>
+
+        {listMode === "queue" ? (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Showing only new approvals in this section: pending and escalated
+            requests that still need review.
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-slate-500">
@@ -636,7 +1034,11 @@ export default function AdminApprovalsPage() {
             columns={columns}
             data={filteredApprovals}
             rowKey="id"
-            emptyMessage={`No ${activeSectionMeta.label.toLowerCase()} approvals match the selected filters.`}
+            emptyMessage={
+              listMode === "queue"
+                ? `No new ${activeSectionMeta.label.toLowerCase()} requests are waiting right now.`
+                : `No ${activeSectionMeta.label.toLowerCase()} approvals match the selected filters.`
+            }
           />
         )}
       </DashboardPanel>
@@ -712,7 +1114,11 @@ export default function AdminApprovalsPage() {
       {selectedApproval ? (
         <ManagementModal
           title="APPROVAL DETAILS"
-          onClose={() => setSelectedApproval(null)}
+          onClose={() => {
+            setSelectedApproval(null);
+            setSelectedApprovalTeamId(null);
+            setShowSelectedTeamPlayers(false);
+          }}
           maxWidthClass="max-w-2xl"
         >
           <div className="space-y-4">
@@ -772,10 +1178,131 @@ export default function AdminApprovalsPage() {
               />
             </div>
 
+            {selectedApprovalSectionKey === "franchises" ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <div>
+                    <p className="text-sm text-slate-500">Teams</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedApprovalTeams.length ? (
+                        <>
+                          {selectedApprovalTeams.map((team) => (
+                            <button
+                              type="button"
+                              key={team.id}
+                              onClick={() => handleViewTeam(team)}
+                              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                                String(selectedApprovalActiveTeam?.id || "") ===
+                                String(team.id)
+                                  ? "border-blue-500 bg-blue-600 text-white"
+                                  : "border-blue-200 bg-blue-100 text-blue-700 hover:border-blue-300 hover:bg-blue-200"
+                              }`}
+                            >
+                              {team.team_name}
+                            </button>
+                          ))}
+                          {selectedApprovalActiveTeam ? (
+                            <button
+                              type="button"
+                              onClick={handleViewTeamPlayers}
+                              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                                showSelectedTeamPlayers
+                                  ? "border-emerald-500 bg-emerald-600 text-white"
+                                  : "border-emerald-200 bg-emerald-100 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-200"
+                              }`}
+                            >
+                              Players
+                            </button>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-600">
+                          No teams linked to this franchise yet.
+                        </p>
+                      )}
+                    </div>
+
+                    {selectedApprovalActiveTeam && showSelectedTeamPlayers ? (
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm text-slate-500">Players</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                              {selectedApprovalActiveTeam.team_name}
+                            </p>
+                          </div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">
+                            {selectedApprovalTeamPlayers.length} Players
+                          </p>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          {selectedApprovalTeamPlayers.length ? (
+                            selectedApprovalTeamPlayers.map((player) => (
+                              <div
+                                key={player.id}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {player.full_name || "Unnamed Player"}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {[player.role, player.squad_role]
+                                      .filter(Boolean)
+                                      .join(" | ") || "Player"}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-slate-500">
+                                    {player.email || "No email"}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {player.mobile || "No mobile"}
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-600">
+                              No players found for this team yet.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : selectedApprovalActiveTeam ? (
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-3">
+                        <p className="text-sm text-slate-600">
+                          Click <span className="font-semibold text-slate-900">Players</span> to
+                          view the squad list for {selectedApprovalActiveTeam.team_name}.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {selectedApprovalContext.length ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Context</p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  {selectedApprovalContext.map((item) => (
+                    <div key={item.label}>
+                      <p className="text-sm text-slate-500">{item.label}</p>
+                      <p className="mt-1 break-all text-sm font-semibold text-slate-900">
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm text-slate-500">Notes</p>
-              <p className="mt-2 text-sm text-slate-700">
-                {getVisibleApprovalNotes(selectedApproval.notes) ||
+              <p className="mt-2 whitespace-pre-line text-sm text-slate-700">
+                {getVisibleApprovalNotes(selectedApproval) ||
                   "No additional notes available."}
               </p>
             </div>

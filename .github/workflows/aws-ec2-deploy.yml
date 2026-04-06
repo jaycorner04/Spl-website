@@ -18,13 +18,56 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "SplCiPassw0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P SplCiPassw0rd! -C -Q \"SELECT 1\" || exit 1"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 30
     env:
       NODE_VERSION: "20"
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET }}
-      AWS_SSM_INSTANCE_ID: ${{ vars.AWS_SSM_INSTANCE_ID }}
-      AWS_DEPLOY_ROOT: ${{ vars.AWS_DEPLOY_ROOT }}
-      AWS_WINDOWS_SERVICE_NAME: ${{ vars.AWS_WINDOWS_SERVICE_NAME }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
+      AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || 'splleague' }}
+      AWS_SSM_INSTANCE_ID: ${{ vars.AWS_SSM_INSTANCE_ID || 'i-093564b6313ba6587' }}
+      AWS_DEPLOY_ROOT: ${{ vars.AWS_DEPLOY_ROOT || '/srv/spl' }}
+      AWS_SERVICE_NAME: ${{ vars.AWS_SERVICE_NAME || 'spl-node-app' }}
+      NODE_ENV: test
+      DB_SERVER: 127.0.0.1
+      DB_PORT: 1433
+      DB_NAME: SPLSqlServerCI
+      DB_BOOTSTRAP_DATABASE: master
+      DB_USER: sa
+      DB_PASSWORD: SplCiPassw0rd!
+      SPL_AUTH_SECRET: spl-ci-secret-please-change
+      SPL_MONITORING_TOKEN: spl-ci-monitoring-token
+      CORS_ALLOWED_ORIGINS: same-origin,http://127.0.0.1:5173,http://localhost:5173
+      RATE_LIMIT_ENABLED: true
+      DB_ENCRYPT: false
+      DB_TRUST_SERVER_CERTIFICATE: true
+      PROD_PORT: ${{ vars.PROD_PORT || '4000' }}
+      PROD_HOST: ${{ vars.PROD_HOST || '0.0.0.0' }}
+      PROD_DB_SERVER: ${{ secrets.PROD_DB_SERVER }}
+      PROD_DB_PORT: ${{ secrets.PROD_DB_PORT }}
+      PROD_DB_NAME: ${{ secrets.PROD_DB_NAME }}
+      PROD_DB_BOOTSTRAP_DATABASE: ${{ secrets.PROD_DB_BOOTSTRAP_DATABASE }}
+      PROD_DB_USER: ${{ secrets.PROD_DB_USER }}
+      PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+      PROD_AUTH_SECRET: ${{ secrets.PROD_AUTH_SECRET }}
+      PROD_MONITORING_TOKEN: ${{ secrets.PROD_MONITORING_TOKEN }}
+      PROD_CORS_ALLOWED_ORIGINS: ${{ secrets.PROD_CORS_ALLOWED_ORIGINS }}
+      PROD_RATE_LIMIT_ENABLED: ${{ vars.PROD_RATE_LIMIT_ENABLED || 'true' }}
+      PROD_DB_ENCRYPT: ${{ vars.PROD_DB_ENCRYPT || 'false' }}
+      PROD_DB_TRUST_SERVER_CERTIFICATE: ${{ vars.PROD_DB_TRUST_SERVER_CERTIFICATE || 'true' }}
+      PROD_VITE_API_BASE_URL: ${{ vars.PROD_VITE_API_BASE_URL || '/api' }}
+      PROD_VITE_ENABLE_HERO_VIDEO: ${{ vars.PROD_VITE_ENABLE_HERO_VIDEO || 'false' }}
+      PROD_VITE_HERO_VIDEO_URL: ${{ secrets.PROD_VITE_HERO_VIDEO_URL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,6 +96,12 @@ jobs:
           test -n "$AWS_REGION" || { echo "AWS_REGION is required"; exit 1; }
           test -n "$AWS_DEPLOY_BUCKET" || { echo "AWS_DEPLOY_BUCKET is required"; exit 1; }
           test -n "$AWS_SSM_INSTANCE_ID" || { echo "AWS_SSM_INSTANCE_ID is required"; exit 1; }
+          test -n "$PROD_DB_SERVER" || { echo "PROD_DB_SERVER secret is required"; exit 1; }
+          test -n "$PROD_DB_NAME" || { echo "PROD_DB_NAME secret is required"; exit 1; }
+          test -n "$PROD_DB_USER" || { echo "PROD_DB_USER secret is required"; exit 1; }
+          test -n "$PROD_DB_PASSWORD" || { echo "PROD_DB_PASSWORD secret is required"; exit 1; }
+          test -n "$PROD_AUTH_SECRET" || { echo "PROD_AUTH_SECRET secret is required"; exit 1; }
+          test -n "$PROD_MONITORING_TOKEN" || { echo "PROD_MONITORING_TOKEN secret is required"; exit 1; }
 
       - name: Create deployment bundle
         shell: bash
@@ -66,12 +115,16 @@ jobs:
             -x "spl-frontend/dist/*" \
             -x ".env*" \
             -x "spl-frontend/.env*" \
-            -x "backend.log"
+            -x "backend.log" \
+            -x ".edge-uat-profile*/*" \
+            -x ".tmp-*.log" \
+            -x "api-start.log" \
+            -x "test-artifacts/*"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: arn:aws:iam::501410019989:role/GitHubActionsSPLDeployRole
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload deployment bundle
@@ -91,33 +144,77 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require("fs");
-          const deploymentRoot = process.env.AWS_DEPLOY_ROOT || "C:\\inetpub\\spl";
-          const serviceName = process.env.AWS_WINDOWS_SERVICE_NAME || "SPLNodeApp";
+
+          function shellEscape(value) {
+            return `'${String(value ?? "").replace(/'/g, `'\"'\"'`)}'`;
+          }
+
+          const deploymentRoot = process.env.AWS_DEPLOY_ROOT || "/srv/spl";
+          const serviceName = process.env.AWS_SERVICE_NAME || "spl-node-app";
           const bundleUrl = process.env.BUNDLE_URL;
           const instanceId = process.env.AWS_SSM_INSTANCE_ID;
+          const envValues = {
+            PROD_PORT: process.env.PROD_PORT || "4000",
+            PROD_HOST: process.env.PROD_HOST || "0.0.0.0",
+            PROD_DB_SERVER: process.env.PROD_DB_SERVER || "",
+            PROD_DB_PORT: process.env.PROD_DB_PORT || "1433",
+            PROD_DB_NAME: process.env.PROD_DB_NAME || "",
+            PROD_DB_BOOTSTRAP_DATABASE:
+              process.env.PROD_DB_BOOTSTRAP_DATABASE || "master",
+            PROD_DB_USER: process.env.PROD_DB_USER || "",
+            PROD_DB_PASSWORD: process.env.PROD_DB_PASSWORD || "",
+            PROD_AUTH_SECRET: process.env.PROD_AUTH_SECRET || "",
+            PROD_MONITORING_TOKEN: process.env.PROD_MONITORING_TOKEN || "",
+            PROD_CORS_ALLOWED_ORIGINS:
+              process.env.PROD_CORS_ALLOWED_ORIGINS || "same-origin",
+            PROD_RATE_LIMIT_ENABLED:
+              process.env.PROD_RATE_LIMIT_ENABLED || "true",
+            PROD_DB_ENCRYPT: process.env.PROD_DB_ENCRYPT || "false",
+            PROD_DB_TRUST_SERVER_CERTIFICATE:
+              process.env.PROD_DB_TRUST_SERVER_CERTIFICATE || "true",
+            PROD_VITE_API_BASE_URL:
+              process.env.PROD_VITE_API_BASE_URL || "/api",
+            PROD_VITE_ENABLE_HERO_VIDEO:
+              process.env.PROD_VITE_ENABLE_HERO_VIDEO || "false",
+            PROD_VITE_HERO_VIDEO_URL:
+              process.env.PROD_VITE_HERO_VIDEO_URL || "",
+          };
+
+          const commands = [
+            "set -euo pipefail",
+            `export DEPLOYMENT_ROOT=${shellEscape(deploymentRoot)}`,
+            `export BUNDLE_URL=${shellEscape(bundleUrl)}`,
+            `export SERVICE_NAME=${shellEscape(serviceName)}`,
+            ...Object.entries(envValues).map(
+              ([key, value]) => `export ${key}=${shellEscape(value)}`
+            ),
+            "BOOTSTRAP_ROOT=/tmp/spl-bootstrap",
+            "BUNDLE_PATH=\"$BOOTSTRAP_ROOT/spl-deploy.zip\"",
+            "EXTRACT_ROOT=\"$BOOTSTRAP_ROOT/bundle\"",
+            "mkdir -p \"$BOOTSTRAP_ROOT\"",
+            "rm -rf \"$EXTRACT_ROOT\"",
+            "curl -fsSL \"$BUNDLE_URL\" -o \"$BUNDLE_PATH\"",
+            "python3 - <<'PY'",
+            "import os, zipfile",
+            "bundle_path = os.environ['BUNDLE_PATH']",
+            "extract_root = os.environ['EXTRACT_ROOT']",
+            "os.makedirs(extract_root, exist_ok=True)",
+            "with zipfile.ZipFile(bundle_path) as zf:",
+            "    zf.extractall(extract_root)",
+            "PY",
+            "DEPLOY_SCRIPT=\"$EXTRACT_ROOT/deployment/aws/ec2-deploy-linux.sh\"",
+            "[ -f \"$DEPLOY_SCRIPT\" ] || { echo 'Deployment script not found in bundle.'; exit 1; }",
+            "chmod +x \"$DEPLOY_SCRIPT\"",
+            "\"$DEPLOY_SCRIPT\" --deployment-root \"$DEPLOYMENT_ROOT\" --bundle-root \"$EXTRACT_ROOT\" --service-name \"$SERVICE_NAME\" --node-env production",
+          ];
+
           const payload = {
-            DocumentName: "AWS-RunPowerShellScript",
+            DocumentName: "AWS-RunShellScript",
             InstanceIds: [instanceId],
             Comment: `Deploy SPL ${process.env.GITHUB_SHA}`,
-            Parameters: {
-              commands: [
-                "$ErrorActionPreference = 'Stop'",
-                `$deploymentRoot = '${deploymentRoot}'`,
-                `$bundleUrl = '${bundleUrl}'`,
-                `$serviceName = '${serviceName}'`,
-                "$bootstrapRoot = Join-Path $env:TEMP 'spl-bootstrap'",
-                "$bundlePath = Join-Path $bootstrapRoot 'spl-deploy.zip'",
-                "$extractRoot = Join-Path $bootstrapRoot 'bundle'",
-                "New-Item -ItemType Directory -Force -Path $bootstrapRoot | Out-Null",
-                "if (Test-Path $extractRoot) { Remove-Item -LiteralPath $extractRoot -Recurse -Force }",
-                "Invoke-WebRequest -Uri $bundleUrl -OutFile $bundlePath",
-                "Expand-Archive -LiteralPath $bundlePath -DestinationPath $extractRoot -Force",
-                "$deployScript = Join-Path $extractRoot 'deployment\\aws\\ec2-deploy.ps1'",
-                "if (-not (Test-Path $deployScript)) { throw 'Deployment script not found in bundle.' }",
-                "powershell -ExecutionPolicy Bypass -File $deployScript -DeploymentRoot $deploymentRoot -BundleRoot $extractRoot -ServiceName $serviceName -NodeEnv 'production'",
-              ],
-            },
+            Parameters: { commands },
           };
+
           fs.mkdirSync("out", { recursive: true });
           fs.writeFileSync("out/ssm-command.json", JSON.stringify(payload, null, 2));
           NODE

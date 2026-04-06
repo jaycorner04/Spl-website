@@ -1,6 +1,7 @@
 import axiosInstance from "./axiosConfig";
 import { notifyApprovalsUpdated } from "../utils/approvalSync";
 import { notifyFranchisesUpdated } from "../utils/franchiseSync";
+import { notifyPlayersUpdated } from "../utils/playerSync";
 import { notifyTeamsUpdated } from "../utils/teamSync";
 
 function getApprovalRefreshScope(approval) {
@@ -16,6 +17,13 @@ function getApprovalRefreshScope(approval) {
     )
   ) {
     return "franchises";
+  }
+
+  if (
+    combined.includes("__spl_player_reg__") ||
+    requestType.includes("player registration")
+  ) {
+    return "players";
   }
 
   if (
@@ -40,6 +48,10 @@ function notifyApprovalSideEffects(approval) {
 
   if (refreshScope === "teams") {
     notifyTeamsUpdated();
+  }
+
+  if (refreshScope === "players") {
+    notifyPlayersUpdated();
   }
 }
 

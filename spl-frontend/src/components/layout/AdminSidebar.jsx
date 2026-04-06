@@ -1,12 +1,19 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import RouteAction from "../common/RouteAction";
 import { adminSidebarSections } from "../../utils/dashboardData";
+import {
+  updateAdminShellProfile,
+  uploadAdminAvatar,
+} from "../../api/adminShellAPI";
+import { getApiErrorMessage } from "../../utils/apiErrors";
+import { getMediaUrl } from "../../utils/media";
 import {
   clearAuthSession,
   getAuthUser,
   isAuthorizedForPath,
+  updateStoredAuthUser,
 } from "../../utils/authStorage";
 import useAdminShell from "../../hooks/useAdminShell";
 
@@ -72,7 +79,10 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const storedUser = getAuthUser();
-  const { profile, badges } = useAdminShell();
+  const { profile, badges, refreshShell } = useAdminShell();
+  const avatarInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
   const sidebarSectionsByRole = useMemo(
     () => ({
@@ -95,8 +105,13 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
         profile?.contextLabel || storedUser?.email || "League dashboard",
       roleLabel: profile?.roleLabel || fallbackRole,
       initials: profile?.initials || getFallbackInitials(fallbackName),
+      avatar: profile?.avatar || storedUser?.avatar || "",
     };
   }, [profile, storedUser]);
+
+  const avatarUrl = resolvedProfile.avatar
+    ? getMediaUrl(resolvedProfile.avatar)
+    : "";
 
   const sidebarSections = useMemo(
     () =>
@@ -116,6 +131,51 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
     clearAuthSession();
     navigate("/login");
     onClose?.();
+  };
+
+  const openAvatarPicker = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Please choose a valid image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("Image must be 5 MB or smaller.");
+      return;
+    }
+
+    try {
+      setUploadingAvatar(true);
+      setAvatarError("");
+
+      const uploadResponse = await uploadAdminAvatar(file);
+      const nextAvatar = uploadResponse?.path || "";
+      const profileResponse = await updateAdminShellProfile({
+        avatar: nextAvatar,
+      });
+
+      updateStoredAuthUser({
+        avatar: profileResponse?.user?.avatar || nextAvatar,
+      });
+      await refreshShell();
+    } catch (error) {
+      setAvatarError(
+        getApiErrorMessage(error, "Unable to upload the admin profile image.")
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const isActivePath = (path) =>
@@ -143,9 +203,37 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
               SP<span className="text-red-400">L</span>
             </div>
 
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+
             <div className="mt-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-sm font-semibold uppercase tracking-[0.12em] text-white">
-                {resolvedProfile.initials}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={openAvatarPicker}
+                  disabled={uploadingAvatar}
+                  className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/10 text-sm font-semibold uppercase tracking-[0.12em] text-white transition hover:border-white/30 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
+                  title="Upload profile image"
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={resolvedProfile.fullName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    resolvedProfile.initials
+                  )}
+
+                  <span className="absolute inset-0 hidden items-center justify-center bg-black/40 text-white group-hover:flex">
+                    <Camera size={14} />
+                  </span>
+                </button>
               </div>
 
               <div>
@@ -158,6 +246,14 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
                 <span className="mt-1 inline-flex rounded-md bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-yellow-200">
                   {resolvedProfile.roleLabel}
                 </span>
+                <p className="mt-1 text-[10px] text-blue-100/70">
+                  {uploadingAvatar ? "Uploading image..." : "Click photo to update"}
+                </p>
+                {avatarError ? (
+                  <p className="mt-1 max-w-[150px] text-[10px] text-red-200">
+                    {avatarError}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

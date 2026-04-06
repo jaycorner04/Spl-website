@@ -5,6 +5,7 @@ export const adminSidebarSections = [
       { label: "Dashboard", path: "/admin", icon: "📊" },
       { label: "Analytics", path: "/admin/analytics", icon: "📈" },
       { label: "Franchises", path: "/admin/franchises", icon: "FR" },
+      { label: "Sponsors", path: "/admin/sponsors", icon: "SP" },
     ],
   },
   {

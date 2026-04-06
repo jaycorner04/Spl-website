@@ -87,6 +87,12 @@ function isPositiveInteger(value) {
   return Number.isInteger(parsedValue) && parsedValue > 0;
 }
 
+function looksLikePlaceholder(value = "") {
+  return /^(your_|replace-|changeme|change-me|example)/i.test(
+    String(value || "").trim()
+  );
+}
+
 function validateServerEnv() {
   loadEnvConfig();
 
@@ -95,6 +101,9 @@ function validateServerEnv() {
   const nodeEnv = String(process.env.NODE_ENV || "development").toLowerCase();
   const authSecret = String(process.env.SPL_AUTH_SECRET || "").trim();
   const dbPassword = String(process.env.DB_PASSWORD || "").trim();
+  const dbServer = String(process.env.DB_SERVER || process.env.DB_HOST || "").trim();
+  const dbUser = String(process.env.DB_USER || "").trim();
+  const monitoringToken = String(process.env.SPL_MONITORING_TOKEN || "").trim();
   const allowedOrigins = parseCsv(process.env.CORS_ALLOWED_ORIGINS || "");
 
   if (!String(process.env.DB_USER || "").trim()) {
@@ -117,7 +126,7 @@ function validateServerEnv() {
     errors.push("HOST cannot be empty.");
   }
 
-  if (!authSecret) {
+  if (!authSecret && nodeEnv !== "test") {
     warnings.push(
       "SPL_AUTH_SECRET is not set. The backend will fall back to a development secret."
     );
@@ -142,6 +151,26 @@ function validateServerEnv() {
 
     if (allowedOrigins.length === 0) {
       errors.push("CORS_ALLOWED_ORIGINS is required in production.");
+    }
+
+    if (!monitoringToken) {
+      errors.push("SPL_MONITORING_TOKEN is required in production.");
+    }
+
+    if (looksLikePlaceholder(dbServer)) {
+      errors.push("DB_SERVER must be replaced with the real production SQL Server host.");
+    }
+
+    if (looksLikePlaceholder(dbUser)) {
+      errors.push("DB_USER must be replaced with the real production SQL login.");
+    }
+
+    if (looksLikePlaceholder(dbPassword)) {
+      errors.push("DB_PASSWORD must be replaced with the real production SQL password.");
+    }
+
+    if (looksLikePlaceholder(authSecret)) {
+      errors.push("SPL_AUTH_SECRET must be replaced with a real production secret.");
     }
   }
 

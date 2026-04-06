@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getPlayers } from "../api/playersAPI";
+import {
+  PLAYERS_UPDATED_EVENT,
+  PLAYERS_UPDATED_STORAGE_KEY,
+} from "../utils/playerSync";
 
 export default function usePlayers(filters = {}) {
   const [players, setPlayers] = useState([]);
@@ -7,49 +11,64 @@ export default function usePlayers(filters = {}) {
   const [error, setError] = useState("");
   const filtersKey = JSON.stringify(filters || {});
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchPlayers = useCallback(async (isMountedRef) => {
+    try {
+      setLoading(true);
+      setError("");
 
-    async function fetchPlayers() {
-      try {
-        setLoading(true);
-        setError("");
+      const data = await getPlayers(JSON.parse(filtersKey));
 
-        const data = await getPlayers(JSON.parse(filtersKey));
+      if (isMountedRef.current) {
+        setPlayers(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("usePlayers fetch error:", err);
 
-        if (isMounted) {
-          setPlayers(Array.isArray(data) ? data : []);
-        }
-      } catch (err) {
-        console.error("usePlayers fetch error:", err);
+      let message = "Unable to fetch players.";
 
-        let message = "Unable to fetch players.";
+      if (err.code === "ERR_NETWORK") {
+        message =
+          "Backend server is not reachable. Please check the API server.";
+      } else if (err.response?.data?.detail) {
+        message = err.response.data.detail;
+      } else if (err.message) {
+        message = err.message;
+      }
 
-        if (err.code === "ERR_NETWORK") {
-          message =
-            "Backend server is not reachable. Please check the API server.";
-        } else if (err.response?.data?.detail) {
-          message = err.response.data.detail;
-        } else if (err.message) {
-          message = err.message;
-        }
-
-        if (isMounted) {
-          setError(message);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+      if (isMountedRef.current) {
+        setError(message);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
       }
     }
+  }, [filtersKey]);
 
-    fetchPlayers();
+  useEffect(() => {
+    const isMountedRef = { current: true };
+
+    fetchPlayers(isMountedRef);
+
+    const handlePlayersUpdated = () => {
+      fetchPlayers(isMountedRef);
+    };
+
+    const handleStorage = (event) => {
+      if (event.key === PLAYERS_UPDATED_STORAGE_KEY) {
+        fetchPlayers(isMountedRef);
+      }
+    };
+
+    window.addEventListener(PLAYERS_UPDATED_EVENT, handlePlayersUpdated);
+    window.addEventListener("storage", handleStorage);
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
+      window.removeEventListener(PLAYERS_UPDATED_EVENT, handlePlayersUpdated);
+      window.removeEventListener("storage", handleStorage);
     };
-  }, [filtersKey]);
+  }, [fetchPlayers]);
 
   return { players, loading, error };
 }

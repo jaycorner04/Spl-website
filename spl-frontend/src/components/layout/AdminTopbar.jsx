@@ -21,7 +21,6 @@ export default function AdminTopbar({
   const [readNotificationIds, setReadNotificationIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchGroups, setSearchGroups] = useState([]);
-  const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -99,7 +98,6 @@ export default function AdminTopbar({
 
     if (trimmedQuery.length < 2) {
       setSearchGroups([]);
-      setSearchTotal(0);
       setSearchError("");
       setSearchLoading(false);
       setSearchPreview(null);
@@ -112,7 +110,6 @@ export default function AdminTopbar({
         setSearchLoading(true);
         setSearchError("");
         setSearchGroups([]);
-        setSearchTotal(0);
         const payload = await searchAdminRecords(trimmedQuery, 20);
 
         if (cancelled) {
@@ -120,7 +117,6 @@ export default function AdminTopbar({
         }
 
         setSearchGroups(Array.isArray(payload?.groups) ? payload.groups : []);
-        setSearchTotal(Number(payload?.total || 0));
         setSearchOpen(true);
       } catch (error) {
         if (cancelled) {
@@ -128,7 +124,6 @@ export default function AdminTopbar({
         }
 
         setSearchGroups([]);
-        setSearchTotal(0);
         setSearchError(
           getApiErrorMessage(error, "Unable to search the admin data right now.")
         );
@@ -188,7 +183,6 @@ export default function AdminTopbar({
     setSearchOpen(false);
     setSearchQuery("");
     setSearchGroups([]);
-    setSearchTotal(0);
     setSearchError("");
   }
 

@@ -6,20 +6,20 @@ This project now includes a GitHub Actions deployment path for:
 - AWS IAM OIDC role
 - AWS S3 deployment bundle storage
 - AWS Systems Manager Run Command
-- AWS EC2 Windows instance
-- IIS reverse proxy to the Node app
+- AWS EC2 Amazon Linux instance
+- Nginx reverse proxy to the Node app
 
 Recommended AWS shape:
-- EC2 Windows instance for the app
+- EC2 Amazon Linux 2023 instance for the app
 - SQL Server reachable from the app
-- IIS for public HTTPS/domain handling
+- Nginx for public HTTPS/domain handling
 - SSM-managed EC2 for remote deployment commands
 - S3 bucket for deployment bundles
 
 ## AWS prerequisites
 
 Create or prepare:
-- 1 Windows EC2 instance
+- 1 Amazon Linux EC2 instance
 - SSM Agent active on the instance
 - IAM instance profile that allows SSM management
 - S3 bucket for deployment bundles
@@ -27,32 +27,53 @@ Create or prepare:
 
 Suggested EC2 software:
 - Node.js 20+
-- IIS
-- URL Rewrite
-- ARR
-- NSSM
+- Nginx
+- unzip
+- python3
 
-One-time Windows service setup:
+One-time EC2 bootstrap on the Linux server:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\deployment\aws\register-windows-service.ps1 -DeploymentRoot "C:\inetpub\spl"
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaycorner04/Spl-website/main/deployment/aws/bootstrap-amazon-linux.sh | sudo bash -s -- --deployment-root /srv/spl --service-name spl-node-app
 ```
 
 ## GitHub repository configuration
 
-Add this secret:
-- `AWS_ROLE_TO_ASSUME`
+Required repository secrets:
+- `PROD_DB_SERVER`
+- `PROD_DB_PORT`
+- `PROD_DB_NAME`
+- `PROD_DB_BOOTSTRAP_DATABASE`
+- `PROD_DB_USER`
+- `PROD_DB_PASSWORD`
+- `PROD_AUTH_SECRET`
+- `PROD_MONITORING_TOKEN`
 
-Add these repository variables:
+Optional repository secrets:
+- `PROD_CORS_ALLOWED_ORIGINS`
+- `PROD_VITE_HERO_VIDEO_URL`
+
+Optional repository variables:
 - `AWS_REGION`
 - `AWS_DEPLOY_BUCKET`
 - `AWS_SSM_INSTANCE_ID`
 - `AWS_DEPLOY_ROOT`
-- `AWS_WINDOWS_SERVICE_NAME`
+- `AWS_SERVICE_NAME`
+- `PROD_PORT`
+- `PROD_HOST`
+- `PROD_RATE_LIMIT_ENABLED`
+- `PROD_DB_ENCRYPT`
+- `PROD_DB_TRUST_SERVER_CERTIFICATE`
+- `PROD_VITE_API_BASE_URL`
+- `PROD_VITE_ENABLE_HERO_VIDEO`
 
-Suggested values:
-- `AWS_DEPLOY_ROOT=C:\inetpub\spl`
-- `AWS_WINDOWS_SERVICE_NAME=SPLNodeApp`
+Current workflow defaults already match your setup:
+- `AWS_REGION=eu-north-1`
+- `AWS_DEPLOY_BUCKET=splleague`
+- `AWS_SSM_INSTANCE_ID=i-093564b6313ba6587`
+- `AWS_DEPLOY_ROOT=/srv/spl`
+- `AWS_SERVICE_NAME=spl-node-app`
+- `AWS_ROLE_TO_ASSUME=arn:aws:iam::501410019989:role/GitHubActionsSPLDeployRole`
 
 ## What the workflow does
 
@@ -67,21 +88,17 @@ It will:
 5. assume AWS credentials with GitHub OIDC
 6. upload the bundle to S3
 7. create a presigned URL
-8. trigger SSM Run Command on the Windows EC2 instance
+8. trigger SSM Run Command on the Linux EC2 instance
 9. run:
-   - [C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\deployment\aws\ec2-deploy.ps1](C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\deployment\aws\ec2-deploy.ps1)
+   - [C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\deployment\aws\ec2-deploy-linux.sh](C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\deployment\aws\ec2-deploy-linux.sh)
 
 ## First deployment
 
 Before the first GitHub deployment:
-1. copy the project to the server once or run a manual bootstrap
-2. create:
-   - `C:\inetpub\spl\.env.production.local`
-   - `C:\inetpub\spl\app\.env.production.local`
-   - `C:\inetpub\spl\app\spl-frontend\.env.production.local`
-3. register the Windows service once
-4. configure IIS with:
-   - [C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\deployment\iis\web.config](C:\Users\abhis\OneDrive\Desktop\CODEX\SPL\deployment\iis\web.config)
+1. run the Linux bootstrap script once on the EC2 instance
+2. add the required production secrets to GitHub
+3. confirm the SQL Server host is reachable from the EC2 instance
+4. trigger the workflow manually or push to `main`
 
 After that, GitHub Actions can handle repeat deployments.
 
@@ -100,7 +117,7 @@ Your GitHub OIDC IAM role should allow at least:
 Scope these to:
 - your deployment bucket
 - the target EC2 instance
-- the `AWS-RunPowerShellScript` SSM document
+- the `AWS-RunShellScript` SSM document
 
 ## Deployment trigger
 

@@ -32,7 +32,7 @@ function getPlayerColor(playerId) {
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams();
-  const { players, loading, error } = usePlayers();
+  const { players, loading, error } = usePlayers({ status: "Active" });
 
   const player = useMemo(() => {
     return players.find((item) => String(item.id) === String(playerId));

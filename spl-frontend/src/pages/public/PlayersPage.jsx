@@ -92,7 +92,7 @@ const homePagePlayerReference = [
 export default function PlayersPage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchParams, setSearchParams] = useSearchParams();
-  const { players, loading, error } = usePlayers();
+  const { players, loading, error } = usePlayers({ status: "Active" });
   const selectedTeamId = searchParams.get("teamId");
   const selectedTeamName = searchParams.get("teamName") || "";
 

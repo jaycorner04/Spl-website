@@ -31,7 +31,10 @@ function getPlayerColor(playerId = 0) {
 export default function TeamDetailPage() {
   const { teamId } = useParams();
   const { teams, loading, error } = useTeams();
-  const playerFilters = useMemo(() => ({ teamId }), [teamId]);
+  const playerFilters = useMemo(
+    () => ({ teamId, status: "Active" }),
+    [teamId]
+  );
   const {
     players: teamPlayers,
     loading: playersLoading,

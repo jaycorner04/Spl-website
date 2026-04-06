@@ -333,13 +333,15 @@ export default function AdminAuctionPage() {
               data={filteredRows}
               rowKey="id"
               emptyMessage="No auction lots match the selected filters."
+              stickyHeader
+              scrollClassName="max-h-[430px] overflow-auto"
             />
           )}
         </DashboardPanel>
 
         <div className="space-y-6">
           <DashboardPanel title="Top Hammer Sales">
-            <div className="space-y-3">
+            <div className="max-h-[430px] space-y-3 overflow-y-auto pr-1">
               {recentSales.length === 0 ? (
                 <p className="text-sm text-slate-500">
                   No sold auction lots are available yet.

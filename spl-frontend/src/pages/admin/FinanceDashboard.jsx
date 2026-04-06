@@ -320,6 +320,8 @@ export default function FinanceDashboard() {
           title="Revenue Breakdown"
           type="pie"
           data={financeRevenueBreakdown}
+          valueFormatter={formatCurrency}
+          showPieLabels
         />
 
         <DashboardPanel title="Settlement Widgets">

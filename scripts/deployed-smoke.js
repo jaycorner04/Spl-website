@@ -77,6 +77,23 @@ async function verifyProtectedRoute(apiBaseUrl, token, routePath) {
   });
 }
 
+async function verifyForbiddenRoute(apiBaseUrl, token, routePath) {
+  const response = await fetch(`${apiBaseUrl}${routePath}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.ok) {
+    throw new Error(`${routePath} should be forbidden for this role.`);
+  }
+
+  if (![401, 403].includes(response.status)) {
+    const body = await response.text();
+    throw new Error(`${routePath} returned ${response.status}: ${body}`);
+  }
+}
+
 async function main() {
   const frontendBaseUrl = normalizeBaseUrl(
     process.env.DEPLOY_FRONTEND_BASE_URL || process.env.FRONTEND_BASE_URL,
@@ -101,18 +118,58 @@ async function main() {
     process.env.DEPLOY_ADMIN_EMAIL || "admin@spl.local"
   ).trim();
   const adminPassword = String(
-    process.env.DEPLOY_ADMIN_PASSWORD || "Password@123"
+    process.env.DEPLOY_ADMIN_PASSWORD || "Spl@12345"
+  ).trim();
+  const opsEmail = String(
+    process.env.DEPLOY_OPS_EMAIL || "ops@spl.local"
+  ).trim();
+  const opsPassword = String(
+    process.env.DEPLOY_OPS_PASSWORD || "Spl@12345"
+  ).trim();
+  const financeEmail = String(
+    process.env.DEPLOY_FINANCE_EMAIL || "finance@spl.local"
+  ).trim();
+  const financePassword = String(
+    process.env.DEPLOY_FINANCE_PASSWORD || "Spl@12345"
+  ).trim();
+  const scorerEmail = String(
+    process.env.DEPLOY_SCORER_EMAIL || "scorer@spl.local"
+  ).trim();
+  const scorerPassword = String(
+    process.env.DEPLOY_SCORER_PASSWORD || "Spl@12345"
   ).trim();
   const franchiseEmail = String(
     process.env.DEPLOY_FRANCHISE_EMAIL || "franchise@spl.local"
   ).trim();
   const franchisePassword = String(
-    process.env.DEPLOY_FRANCHISE_PASSWORD || "Password@123"
+    process.env.DEPLOY_FRANCHISE_PASSWORD || "Spl@12345"
   ).trim();
 
   const adminToken = await loginAndGetToken(apiBaseUrl, adminEmail, adminPassword);
   await verifyProtectedRoute(apiBaseUrl, adminToken, "/auth/me");
   await verifyProtectedRoute(apiBaseUrl, adminToken, "/admin/dashboard");
+  await verifyProtectedRoute(apiBaseUrl, adminToken, "/approvals");
+  await verifyProtectedRoute(apiBaseUrl, adminToken, "/teams");
+
+  const opsToken = await loginAndGetToken(apiBaseUrl, opsEmail, opsPassword);
+  await verifyProtectedRoute(apiBaseUrl, opsToken, "/auth/me");
+  await verifyProtectedRoute(apiBaseUrl, opsToken, "/matches");
+  await verifyProtectedRoute(apiBaseUrl, opsToken, "/live-match");
+  await verifyForbiddenRoute(apiBaseUrl, opsToken, "/approvals");
+
+  const financeToken = await loginAndGetToken(
+    apiBaseUrl,
+    financeEmail,
+    financePassword
+  );
+  await verifyProtectedRoute(apiBaseUrl, financeToken, "/auth/me");
+  await verifyProtectedRoute(apiBaseUrl, financeToken, "/invoices");
+  await verifyForbiddenRoute(apiBaseUrl, financeToken, "/teams");
+
+  const scorerToken = await loginAndGetToken(apiBaseUrl, scorerEmail, scorerPassword);
+  await verifyProtectedRoute(apiBaseUrl, scorerToken, "/auth/me");
+  await verifyProtectedRoute(apiBaseUrl, scorerToken, "/live-match");
+  await verifyForbiddenRoute(apiBaseUrl, scorerToken, "/invoices");
 
   const franchiseToken = await loginAndGetToken(
     apiBaseUrl,
@@ -121,12 +178,13 @@ async function main() {
   );
   await verifyProtectedRoute(apiBaseUrl, franchiseToken, "/auth/me");
   await verifyProtectedRoute(apiBaseUrl, franchiseToken, "/franchise/summary");
+  await verifyForbiddenRoute(apiBaseUrl, franchiseToken, "/approvals");
 
   process.stdout.write(
     [
       `Deployed SPA smoke passed for ${publicRoutes.length} routes.`,
       "Deployed API health passed.",
-      "Admin and franchise protected route checks passed.",
+      "Role-based protected route checks passed for super admin, ops, finance, scorer, and franchise access.",
     ].join("\n")
   );
 }

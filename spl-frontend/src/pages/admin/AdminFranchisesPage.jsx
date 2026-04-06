@@ -17,7 +17,12 @@ import {
   uploadFranchiseLogo,
 } from "../../api/franchiseAPI";
 import { createTeam, getTeams, patchTeam } from "../../api/teamsAPI";
-import { createPlayer, getPlayers, patchPlayer } from "../../api/playersAPI";
+import {
+  createPlayer,
+  getPlayers,
+  patchPlayer,
+  uploadPlayerPhoto,
+} from "../../api/playersAPI";
 import { getApiErrorMessage } from "../../utils/apiErrors";
 import { formatFranchiseId } from "../../utils/adminFormatters";
 import { downloadCsv } from "../../utils/downloadCsv";
@@ -56,6 +61,7 @@ function createDraftPlayer(squadRole = "Playing XI") {
   return {
     id: `player-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     full_name: "",
+    photo: "",
     role: "Player",
     squad_role: squadRole,
     batting_style: "Right Hand",
@@ -126,6 +132,26 @@ function getFranchiseInitials(name = "") {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function getPlayerInitials(name = "") {
+  const normalizedName = String(name || "").trim();
+
+  if (!normalizedName) {
+    return "PL";
+  }
+
+  return normalizedName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function getDraftPlayerUploadKey(draftTeamId, draftPlayerId) {
+  return `${draftTeamId}:${draftPlayerId}`;
 }
 
 function mapFranchiseToForm(franchise) {
@@ -219,6 +245,11 @@ export default function AdminFranchisesPage() {
   const [formError, setFormError] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState("");
+  const [uploadingDraftPlayerKey, setUploadingDraftPlayerKey] = useState("");
+  const [draftPlayerUploadError, setDraftPlayerUploadError] = useState({
+    key: "",
+    message: "",
+  });
   const logoInputRef = useRef(null);
   const handledSearchFocusRef = useRef("");
   const appliedSearchTokenRef = useRef("");
@@ -716,6 +747,11 @@ export default function AdminFranchisesPage() {
     setDraftTeams([]);
     setFormError("");
     setLogoUploadError("");
+    setUploadingDraftPlayerKey("");
+    setDraftPlayerUploadError({
+      key: "",
+      message: "",
+    });
   };
 
   const openViewModal = (franchise) => {
@@ -726,6 +762,11 @@ export default function AdminFranchisesPage() {
     setDraftTeams([]);
     setFormError("");
     setLogoUploadError("");
+    setUploadingDraftPlayerKey("");
+    setDraftPlayerUploadError({
+      key: "",
+      message: "",
+    });
   };
 
   const openEditModal = (franchise) => {
@@ -750,6 +791,11 @@ export default function AdminFranchisesPage() {
     setDraftTeams([createDraftTeam(franchise.owner_name)]);
     setFormError("");
     setLogoUploadError("");
+    setUploadingDraftPlayerKey("");
+    setDraftPlayerUploadError({
+      key: "",
+      message: "",
+    });
   };
 
   const openDeleteModal = (franchise) => {
@@ -760,6 +806,11 @@ export default function AdminFranchisesPage() {
     setDraftTeams([]);
     setFormError("");
     setLogoUploadError("");
+    setUploadingDraftPlayerKey("");
+    setDraftPlayerUploadError({
+      key: "",
+      message: "",
+    });
   };
 
   const closeModal = () => {
@@ -771,6 +822,11 @@ export default function AdminFranchisesPage() {
     setFormError("");
     setLogoUploadError("");
     setUploadingLogo(false);
+    setUploadingDraftPlayerKey("");
+    setDraftPlayerUploadError({
+      key: "",
+      message: "",
+    });
   };
 
   const handleFilterChange = (key, value) => {
@@ -893,6 +949,71 @@ export default function AdminFranchisesPage() {
           : draftTeam
       )
     );
+  };
+
+  const handleDraftPlayerPhotoUpload = async (
+    draftTeamId,
+    draftPlayerId,
+    event
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const uploadKey = getDraftPlayerUploadKey(draftTeamId, draftPlayerId);
+
+    if (!file.type.startsWith("image/")) {
+      setDraftPlayerUploadError({
+        key: uploadKey,
+        message: "Please choose a valid image file.",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setDraftPlayerUploadError({
+        key: uploadKey,
+        message: "Image must be 5 MB or smaller.",
+      });
+      return;
+    }
+
+    try {
+      setUploadingDraftPlayerKey(uploadKey);
+      setDraftPlayerUploadError({
+        key: "",
+        message: "",
+      });
+
+      const uploadResponse = await uploadPlayerPhoto(file);
+      handleDraftPlayerChange(
+        draftTeamId,
+        draftPlayerId,
+        "photo",
+        uploadResponse.path || ""
+      );
+    } catch (uploadError) {
+      setDraftPlayerUploadError({
+        key: uploadKey,
+        message: getApiErrorMessage(
+          uploadError,
+          "Unable to upload player image."
+        ),
+      });
+    } finally {
+      setUploadingDraftPlayerKey("");
+    }
+  };
+
+  const handleClearDraftPlayerPhoto = (draftTeamId, draftPlayerId) => {
+    handleDraftPlayerChange(draftTeamId, draftPlayerId, "photo", "");
+    setDraftPlayerUploadError({
+      key: "",
+      message: "",
+    });
   };
 
   const handleSetDraftPlayerSquadRole = (
@@ -1208,7 +1329,7 @@ export default function AdminFranchisesPage() {
             team_name: createdTeam.team_name,
             batting_style: draftPlayer.batting_style.trim(),
             bowling_style: draftPlayer.bowling_style.trim(),
-            photo: "",
+            photo: draftPlayer.photo || "",
             created_at: "",
             date_of_birth: "",
             mobile: draftPlayer.mobile.trim(),
@@ -2640,6 +2761,90 @@ export default function AdminFranchisesPage() {
                                           </div>
                                         </div>
 
+                                        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex items-center gap-4">
+                                              {draftPlayer.photo ? (
+                                                <img
+                                                  src={getMediaUrl(draftPlayer.photo)}
+                                                  alt={draftPlayer.full_name || "Player photo"}
+                                                  className="h-16 w-16 rounded-2xl object-cover shadow-[0_8px_20px_rgba(15,23,42,0.12)]"
+                                                />
+                                              ) : (
+                                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 font-condensed text-lg uppercase tracking-[0.16em] text-slate-500">
+                                                  {getPlayerInitials(draftPlayer.full_name)}
+                                                </div>
+                                              )}
+
+                                              <div>
+                                                <p className="font-condensed text-sm uppercase tracking-[0.16em] text-slate-700">
+                                                  Player Image
+                                                </p>
+                                                <p className="mt-1 text-sm text-slate-500">
+                                                  Upload a JPG, PNG, or WEBP image up to 5 MB for this player.
+                                                </p>
+                                                {draftPlayerUploadError.key ===
+                                                getDraftPlayerUploadKey(
+                                                  draftTeam.id,
+                                                  draftPlayer.id
+                                                ) ? (
+                                                  <p className="mt-2 text-sm text-red-600">
+                                                    {draftPlayerUploadError.message}
+                                                  </p>
+                                                ) : null}
+                                              </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                              <label className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                                                {uploadingDraftPlayerKey ===
+                                                getDraftPlayerUploadKey(
+                                                  draftTeam.id,
+                                                  draftPlayer.id
+                                                )
+                                                  ? "Uploading..."
+                                                  : draftPlayer.photo
+                                                  ? "Change Image"
+                                                  : "Upload Image"}
+                                                <input
+                                                  type="file"
+                                                  accept="image/*"
+                                                  className="hidden"
+                                                  onChange={(event) =>
+                                                    handleDraftPlayerPhotoUpload(
+                                                      draftTeam.id,
+                                                      draftPlayer.id,
+                                                      event
+                                                    )
+                                                  }
+                                                  disabled={
+                                                    uploadingDraftPlayerKey ===
+                                                    getDraftPlayerUploadKey(
+                                                      draftTeam.id,
+                                                      draftPlayer.id
+                                                    )
+                                                  }
+                                                />
+                                              </label>
+
+                                              {draftPlayer.photo ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    handleClearDraftPlayerPhoto(
+                                                      draftTeam.id,
+                                                      draftPlayer.id
+                                                    )
+                                                  }
+                                                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-600 transition hover:bg-slate-50"
+                                                >
+                                                  Remove
+                                                </button>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                        </div>
+
                                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                           <div>
                                             <label className="mb-2 block text-sm text-slate-500">
@@ -2826,7 +3031,7 @@ export default function AdminFranchisesPage() {
                   <button
                     type="button"
                     onClick={handleSave}
-                    disabled={saving || uploadingLogo}
+                    disabled={saving || uploadingLogo || Boolean(uploadingDraftPlayerKey)}
                     className="rounded-xl bg-purple-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {saving
@@ -2837,6 +3042,8 @@ export default function AdminFranchisesPage() {
                         : "Saving..."
                       : uploadingLogo
                       ? "Uploading..."
+                      : uploadingDraftPlayerKey
+                      ? "Uploading Player Image..."
                       : modalType === "add"
                       ? "Add Franchise"
                       : modalType === "add-team"

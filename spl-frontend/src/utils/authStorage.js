@@ -24,6 +24,7 @@ const ROLE_ALLOWED_PATHS = {
     "/admin",
     "/admin/analytics",
     "/admin/franchises",
+    "/admin/sponsors",
     "/admin/matches",
     "/admin/players",
     "/admin/teams",
@@ -65,7 +66,7 @@ function decodeTokenPayload(token) {
       "="
     );
     return JSON.parse(window.atob(padded));
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -77,7 +78,7 @@ function parseStoredUser(value) {
 
   try {
     return JSON.parse(value);
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -98,6 +99,26 @@ export function saveAuthSession(session) {
 
   window.localStorage.setItem(AUTH_TOKEN_KEY, session.token);
   window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(session.user));
+}
+
+export function updateStoredAuthUser(partialUser = {}) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  const currentUser = parseStoredUser(window.localStorage.getItem(AUTH_USER_KEY));
+
+  if (!currentUser) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    AUTH_USER_KEY,
+    JSON.stringify({
+      ...currentUser,
+      ...partialUser,
+    })
+  );
 }
 
 export function getAuthToken() {
@@ -141,6 +162,7 @@ export function getAuthUser() {
     email: user.email ?? payload?.email ?? "",
     role: user.role ?? payload?.role ?? "",
     franchiseId: user.franchiseId ?? payload?.franchiseId ?? null,
+    avatar: user.avatar ?? "",
   };
 }
 

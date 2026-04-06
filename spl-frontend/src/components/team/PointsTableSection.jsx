@@ -248,9 +248,14 @@ function buildTeamIdentity(teamName, linkedTeam, fallback = {}) {
   };
 }
 
-function mergeSeasonRows(rows, teams) {
+function mergeSeasonRows(rows, teams, allowFallback = true) {
   const fallbackRows = defaultStandings;
-  const sourceRows = Array.isArray(rows) && rows.length > 0 ? rows : fallbackRows;
+  const sourceRows =
+    Array.isArray(rows) && rows.length > 0
+      ? rows
+      : allowFallback
+        ? fallbackRows
+        : [];
   const teamsByName = new Map(
     (teams || []).map((team) => [String(team.team_name || "").toLowerCase(), team])
   );
@@ -299,8 +304,12 @@ function mergeSeasonRows(rows, teams) {
   }));
 }
 
-function normalizePlayoffRows(rows) {
+function normalizePlayoffRows(rows, allowFallback = true) {
   if (!Array.isArray(rows) || rows.length === 0) {
+    if (!allowFallback) {
+      return [];
+    }
+
     return defaultPlayoffStandings;
   }
 
@@ -355,7 +364,10 @@ function TeamMark({ row, sizeClass = "h-6 w-6", wrapperClass = "h-10 w-10" }) {
   );
 }
 
-export default function PointsTableSection({ standingsData }) {
+export default function PointsTableSection({
+  standingsData,
+  allowFallback = true,
+}) {
   const [activeView, setActiveView] = useState("season");
   const { teams } = useTeams();
   const { franchises } = useFranchises();
@@ -371,10 +383,17 @@ export default function PointsTableSection({ standingsData }) {
     const franchiseId = String(team.franchise_id || "");
     return !franchiseId || approvedFranchiseIds.has(franchiseId);
   });
-  const standings = mergeSeasonRows(standingsData?.season, publicTeams);
-  const playoffStandings = normalizePlayoffRows(standingsData?.playoffs);
+  const standings = mergeSeasonRows(
+    standingsData?.season,
+    publicTeams,
+    allowFallback
+  );
+  const playoffStandings = normalizePlayoffRows(
+    standingsData?.playoffs,
+    allowFallback
+  );
   const isPlayoffView = activeView === "playoffs";
-  const visibleRows = isPlayoffView ? playoffStandings : standings;
+  const displayedRows = isPlayoffView ? playoffStandings : standings;
 
   const getRankBadgeClass = (position) => {
     const badgeStyles = {
@@ -400,15 +419,12 @@ export default function PointsTableSection({ standingsData }) {
   };
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-12 sm:px-6 sm:py-14 lg:px-8 xl:px-10">
+    <section className="spl-home-shell relative z-10 w-full py-12 sm:py-14">
       <div className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="font-heading text-3xl tracking-[0.08em] text-[#5f2439] sm:text-4xl lg:text-[3rem]">
             POINTS <span className="text-[#b88a2a]">TABLE</span>
           </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            Season standings inspired by the IPL points table layout, adapted for your home-page teams and branding.
-          </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -466,9 +482,17 @@ export default function PointsTableSection({ standingsData }) {
           </div>
         </div>
 
-        <div className="grid gap-4 p-4 sm:p-5 md:hidden">
-          {isPlayoffView
-            ? playoffStandings.map((row, index) => (
+        {displayedRows.length === 0 ? (
+          <div className="p-6 text-center text-sm text-slate-500">
+            {isPlayoffView
+              ? "Playoff standings will appear here once playoff matchups are published."
+              : "Points table data will appear here once league standings are published."}
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-4 p-4 sm:p-5 md:hidden">
+              {isPlayoffView
+                ? playoffStandings.map((row, index) => (
                 <article
                   key={`${row.seed}-${row.team}-mobile`}
                   className={`rounded-[22px] border border-slate-200 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${
@@ -502,7 +526,7 @@ export default function PointsTableSection({ standingsData }) {
                   </div>
                 </article>
               ))
-            : standings.map((row) => (
+                : standings.map((row) => (
                 <article
                   key={`${row.pos}-${row.team}-mobile`}
                   className={`rounded-[22px] border border-slate-200 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${getRowAccent(
@@ -562,35 +586,35 @@ export default function PointsTableSection({ standingsData }) {
                   </div>
                 </article>
               ))}
-        </div>
+            </div>
 
-        <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full border-collapse">
-            <thead>
-              {isPlayoffView ? (
-                <tr className="border-b border-slate-200 bg-[#0f2447]">
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Seed</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Team</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Stage</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Opponent</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-[#f6cf63] sm:px-5 sm:text-sm">Status</th>
-                </tr>
-              ) : (
-                <tr className="border-b border-slate-200 bg-[#0f2447]">
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Pos</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Team</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">P</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">W</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">L</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">NRR</th>
-                  <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-[#f6cf63] sm:px-5 sm:text-sm">Pts</th>
-                </tr>
-              )}
-            </thead>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  {isPlayoffView ? (
+                    <tr className="border-b border-slate-200 bg-[#0f2447]">
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Seed</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Team</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Stage</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Opponent</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-[#f6cf63] sm:px-5 sm:text-sm">Status</th>
+                    </tr>
+                  ) : (
+                    <tr className="border-b border-slate-200 bg-[#0f2447]">
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Pos</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Team</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">P</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">W</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">L</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">NRR</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-[#f6cf63] sm:px-5 sm:text-sm">Pts</th>
+                    </tr>
+                  )}
+                </thead>
 
-            <tbody>
-              {isPlayoffView
-                ? playoffStandings.map((row, index) => (
+                <tbody>
+                  {isPlayoffView
+                    ? playoffStandings.map((row, index) => (
                     <tr
                       key={`${row.seed}-${row.team}`}
                       className={`border-b border-slate-100 transition hover:bg-slate-50 ${
@@ -624,7 +648,7 @@ export default function PointsTableSection({ standingsData }) {
                       </td>
                     </tr>
                   ))
-                : standings.map((row) => (
+                    : standings.map((row) => (
                     <tr
                       key={`${row.pos}-${row.team}`}
                       className={`border-b border-slate-100 transition hover:bg-slate-50 ${getRowAccent(row.pos)}`}
@@ -665,9 +689,11 @@ export default function PointsTableSection({ standingsData }) {
                       </td>
                     </tr>
                   ))}
-            </tbody>
-          </table>
-        </div>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

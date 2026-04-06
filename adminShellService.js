@@ -416,6 +416,7 @@ async function getAdminShellPayload(user) {
       status: user?.status || "Active",
       initials: getInitials(user?.fullName || user?.email),
       email: user?.email || "",
+      avatar: user?.avatar || "",
     },
     badges: visibleBadges,
     notifications: visibleNotifications,

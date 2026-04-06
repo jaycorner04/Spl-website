@@ -26,7 +26,7 @@ export default function useBackendStatus() {
         });
 
         setIsBackendReachable(response.ok);
-      } catch (error) {
+      } catch {
         setIsBackendReachable(false);
       } finally {
         setIsChecking(false);
