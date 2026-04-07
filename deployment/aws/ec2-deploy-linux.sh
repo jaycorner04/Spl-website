@@ -221,6 +221,33 @@ ensure_local_sqlserver() {
 
 }
 
+wait_for_api_ready() {
+  local base_url="http://127.0.0.1:${PROD_PORT:-4000}"
+  local health_url="${base_url}/api/health"
+  local metrics_url="${base_url}/api/metrics"
+  local attempt=0
+
+  while [[ $attempt -lt 40 ]]; do
+    if curl -fsS "$health_url" >/dev/null 2>&1 && curl -fsS "$metrics_url" >/dev/null 2>&1; then
+      echo "Application is responding at ${base_url}"
+      return
+    fi
+
+    attempt=$((attempt + 1))
+    echo "Application not ready yet. Waiting before retry ${attempt}/40..."
+    sleep 5
+  done
+
+  echo "Application did not become ready in time." >&2
+
+  if [[ -n "$SYSTEMCTL_BIN" ]]; then
+    "$SYSTEMCTL_BIN" status "$SERVICE_NAME" --no-pager || true
+    journalctl -u "$SERVICE_NAME" -n 200 --no-pager || true
+  fi
+
+  exit 1
+}
+
 echo "Preparing deployment directories"
 mkdir -p "$APP_ROOT" "$LOGS_ROOT"
 
@@ -257,9 +284,6 @@ pushd "$APP_ROOT" >/dev/null
 
 export NODE_ENV="$NODE_ENVIRONMENT"
 
-echo "Installing backend dependencies"
-npm ci --omit=dev
-
 if [[ -f "${FRONTEND_ROOT}/dist/index.html" ]]; then
   echo "Using prebuilt frontend assets from deployment bundle"
 else
@@ -269,15 +293,6 @@ else
   echo "Building frontend"
   npm run build:frontend
 fi
-
-echo "Validating runtime environment"
-npm run validate:env
-
-echo "Running database migrations"
-npm run db:migrate
-
-echo "Checking database connectivity"
-npm run db:health
 
 popd >/dev/null
 
@@ -295,9 +310,7 @@ if [[ -n "$SYSTEMCTL_BIN" ]]; then
   fi
 fi
 
-pushd "$APP_ROOT" >/dev/null
-echo "Running post-start monitoring check"
-npm run monitor:health
-popd >/dev/null
+echo "Waiting for application health endpoints"
+wait_for_api_ready
 
 echo "Linux EC2 deployment completed."
