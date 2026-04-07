@@ -241,8 +241,11 @@ def get_home_payload() -> dict[str, Any]:
 
     home = get_project_data("home") or {}
     teams = list_collection("teams")
+    franchises = list_collection("franchises")
     payload = {
         **home,
+        "teams": teams,
+        "franchises": franchises,
         "standings": {
             **(home.get("standings") or {}),
             "season": build_home_standings_rows((home.get("standings") or {}).get("season"), teams),

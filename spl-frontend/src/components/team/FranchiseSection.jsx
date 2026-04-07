@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import SectionHeader from "../common/SectionHeader";
 import RouteAction from "../common/RouteAction";
-import useFranchises from "../../hooks/useFranchises";
-import useTeams from "../../hooks/useTeams";
 import { getMediaUrl } from "../../utils/media";
 import {
   findTeamBrandReference,
@@ -10,13 +8,12 @@ import {
   getShortName,
 } from "../../utils/teamBranding";
 
-export default function FranchiseSection() {
-  const {
-    franchises,
-    loading: loadingFranchises,
-    error: franchisesError,
-  } = useFranchises();
-  const { teams, loading: loadingTeams, error: teamsError } = useTeams();
+export default function FranchiseSection({
+  franchises = [],
+  teams = [],
+  loading = false,
+  error = "",
+}) {
   const approvedFranchises = useMemo(
     () =>
       franchises.filter((item) => {
@@ -109,9 +106,6 @@ export default function FranchiseSection() {
 
     return [...franchiseCards, ...standaloneCards];
   }, [allFranchiseIds, approvedFranchises, teams]);
-
-  const loading = loadingFranchises || loadingTeams;
-  const error = franchisesError || teamsError;
 
   return (
     <section className="spl-home-shell relative z-10 w-full py-12 sm:py-14">

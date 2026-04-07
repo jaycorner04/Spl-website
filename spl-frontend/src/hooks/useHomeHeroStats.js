@@ -13,7 +13,10 @@ import {
   TEAMS_UPDATED_STORAGE_KEY,
 } from "../utils/teamSync";
 
-export default function useHomeHeroStats() {
+export default function useHomeHeroStats({
+  prefetchedFranchises = null,
+  prefetchedTeams = null,
+} = {}) {
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,11 +29,18 @@ export default function useHomeHeroStats() {
         setLoading(true);
         setError("");
 
+        const franchiseRequest = Array.isArray(prefetchedFranchises)
+          ? Promise.resolve(prefetchedFranchises)
+          : getFranchises();
+        const teamsRequest = Array.isArray(prefetchedTeams)
+          ? Promise.resolve(prefetchedTeams)
+          : getTeams();
+
         const [franchises, players, fixtures, teams] = await Promise.all([
-          getFranchises(),
+          franchiseRequest,
           getPlayers(),
           getFixtures(),
-          getTeams(),
+          teamsRequest,
         ]);
         const approvedFranchises = Array.isArray(franchises)
           ? franchises.filter((item) => {
@@ -115,7 +125,7 @@ export default function useHomeHeroStats() {
       window.removeEventListener("focus", handleRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [prefetchedFranchises, prefetchedTeams]);
 
   return { stats, loading, error };
 }

@@ -31,8 +31,13 @@ export default function HomePage() {
     loading: homeContentLoading,
     error: homeContentError,
   } = useHomeContent();
+  const franchiseItems = getArrayOrEmpty(homeContent?.franchises);
+  const teamItems = getArrayOrEmpty(homeContent?.teams);
   const { stats, error: heroStatsError, loading: heroStatsLoading } =
-    useHomeHeroStats();
+    useHomeHeroStats({
+      prefetchedFranchises: franchiseItems,
+      prefetchedTeams: teamItems,
+    });
   const {
     performers: topPerformers,
     error: topPerformersError,
@@ -183,7 +188,12 @@ export default function HomePage() {
         </div>
 
         <div id="franchises">
-          <FranchiseSection />
+          <FranchiseSection
+            franchises={franchiseItems}
+            teams={teamItems}
+            loading={homeContentLoading}
+            error={homeContentError}
+          />
         </div>
 
         <div id="points-table">
