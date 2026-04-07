@@ -104,14 +104,22 @@ export default function LoginPage() {
         role: selectedRole,
       });
 
+      const authenticatedUser = authResponse?.user;
+
+      if (!authenticatedUser?.role) {
+        throw new Error(
+          "Sign-in completed, but the account response is missing role details."
+        );
+      }
+
       saveAuthSession(authResponse);
 
       const requestedPath = location.state?.from;
       const nextPath =
         typeof requestedPath === "string" &&
-        isAuthorizedForPath(requestedPath, authResponse.user)
+        isAuthorizedForPath(requestedPath, authenticatedUser)
           ? requestedPath
-          : getDefaultPostLoginPath(authResponse.user.role);
+          : getDefaultPostLoginPath(authenticatedUser.role);
 
       navigate(nextPath, { replace: true });
     } catch (error) {

@@ -93,7 +93,7 @@ export function clearAuthSession() {
 }
 
 export function saveAuthSession(session) {
-  if (!isBrowser() || !session?.token || !session?.user) {
+  if (!isBrowser() || !session?.token || !session?.user?.role) {
     return;
   }
 
