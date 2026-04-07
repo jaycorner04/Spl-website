@@ -103,6 +103,7 @@ After=network.target docker.service
 Type=simple
 User=ec2-user
 WorkingDirectory=${APP_ROOT}
+EnvironmentFile=-${APP_ROOT}/.env.production.local
 Environment=NODE_ENV=production
 Environment=PYTHON_BACKEND_EXECUTABLE=/usr/bin/python3
 Environment=POWERSHELL_EXECUTABLE=/usr/bin/pwsh
@@ -118,6 +119,18 @@ EOF
 
   "$SYSTEMCTL_BIN" daemon-reload
   "$SYSTEMCTL_BIN" enable "$SERVICE_NAME"
+}
+
+export_backend_runtime_env() {
+  set -a
+  # shellcheck disable=SC1090
+  source "${APP_ROOT}/.env.production.local"
+  set +a
+
+  export NODE_ENV="$NODE_ENVIRONMENT"
+  export PYTHON_BACKEND_EXECUTABLE=/usr/bin/python3
+  export POWERSHELL_EXECUTABLE=/usr/bin/pwsh
+  export PYTHONPATH="$APP_ROOT"
 }
 
 ensure_python_backend_runtime() {
@@ -221,14 +234,27 @@ ensure_local_sqlserver() {
 
 }
 
+preinitialize_backend_state() {
+  echo "Pre-initializing backend database state"
+  export_backend_runtime_env
+
+  pushd "$APP_ROOT" >/dev/null
+  python3 - <<'PY'
+from python_backend.db_layer import get_database_health, initialize_database
+
+initialize_database()
+print(get_database_health())
+PY
+  popd >/dev/null
+}
+
 wait_for_api_ready() {
   local base_url="http://127.0.0.1:${PROD_PORT:-4000}"
   local health_url="${base_url}/api/health"
-  local metrics_url="${base_url}/api/metrics"
   local attempt=0
 
   while [[ $attempt -lt 60 ]]; do
-    if curl -fsS "$health_url" >/dev/null 2>&1 && curl -fsS "$metrics_url" >/dev/null 2>&1; then
+    if curl -fsS "$health_url" >/dev/null 2>&1; then
       echo "Application is responding at ${base_url}"
       return
     fi
@@ -298,6 +324,8 @@ else
 fi
 
 popd >/dev/null
+
+preinitialize_backend_state
 
 if [[ -n "$SYSTEMCTL_BIN" ]]; then
   echo "Ensuring systemd service exists"

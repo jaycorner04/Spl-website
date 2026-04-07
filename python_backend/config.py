@@ -13,7 +13,7 @@ FRONTEND_DIST_DIR = ROOT_DIR / "spl-frontend" / "dist"
 ENV_FILE = ROOT_DIR / ".env"
 
 
-def _load_env_file(env_path: Path) -> None:
+def _load_env_file(env_path: Path, *, override: bool = False) -> None:
     if not env_path.exists():
         return
 
@@ -26,14 +26,28 @@ def _load_env_file(env_path: Path) -> None:
         key, value = line.split("=", 1)
         key = key.strip()
 
-        if not key or key in os.environ:
+        if not key or (not override and key in os.environ):
             continue
 
         value = value.strip().strip("'").strip('"')
         os.environ[key] = value
 
+def _load_environment() -> None:
+    node_env = str(os.getenv("NODE_ENV", "development")).strip().lower() or "development"
+    base_files = [ROOT_DIR / ".env", ROOT_DIR / ".env.local"]
+    env_specific_files = [
+        ROOT_DIR / f".env.{node_env}",
+        ROOT_DIR / f".env.{node_env}.local",
+    ]
 
-_load_env_file(ENV_FILE)
+    for env_path in base_files:
+        _load_env_file(env_path)
+
+    for env_path in env_specific_files:
+        _load_env_file(env_path, override=True)
+
+
+_load_environment()
 
 
 def _parse_bool(value: str | None, default: bool) -> bool:

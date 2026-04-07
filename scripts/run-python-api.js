@@ -1,8 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
+const { loadEnvConfig } = require("../envConfig");
 
 const projectRoot = path.resolve(__dirname, "..");
+loadEnvConfig(projectRoot);
 
 const pythonCandidates = [
   process.env.PYTHON_BACKEND_EXECUTABLE,
