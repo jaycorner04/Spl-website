@@ -227,14 +227,17 @@ wait_for_api_ready() {
   local metrics_url="${base_url}/api/metrics"
   local attempt=0
 
-  while [[ $attempt -lt 40 ]]; do
+  while [[ $attempt -lt 60 ]]; do
     if curl -fsS "$health_url" >/dev/null 2>&1 && curl -fsS "$metrics_url" >/dev/null 2>&1; then
       echo "Application is responding at ${base_url}"
       return
     fi
 
     attempt=$((attempt + 1))
-    echo "Application not ready yet. Waiting before retry ${attempt}/40..."
+    echo "Application not ready yet. Waiting before retry ${attempt}/60..."
+    if [[ -n "$SYSTEMCTL_BIN" ]]; then
+      "$SYSTEMCTL_BIN" is-active "$SERVICE_NAME" || true
+    fi
     sleep 5
   done
 
