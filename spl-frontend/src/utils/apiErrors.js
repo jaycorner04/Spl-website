@@ -7,6 +7,13 @@ export function getApiErrorMessage(error, fallbackMessage) {
     return error.response.data.detail;
   }
 
+  if (
+    typeof error?.message === "string" &&
+    /reading ['"]role['"]/i.test(error.message)
+  ) {
+    return "Sign-in completed, but the account details were incomplete. Please refresh once and try again.";
+  }
+
   if (error?.message) {
     return error.message;
   }

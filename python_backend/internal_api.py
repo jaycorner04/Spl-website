@@ -498,8 +498,18 @@ def require_item_write_access(resource_name: str, request: Request, existing_rec
     return require_privileged_access(request)
 
 
+def serve_frontend_index() -> FileResponse | None:
+    index_path = FRONTEND_DIST_DIR / 'index.html'
+    if index_path.exists():
+        return FileResponse(index_path)
+    return None
+
+
 @app.get('/')
-def root() -> dict[str, Any]:
+def root() -> FileResponse | dict[str, Any]:
+    frontend_index = serve_frontend_index()
+    if frontend_index is not None:
+        return frontend_index
     return {'message': 'SPL Python API server is running.', 'api': '/api/', 'health': '/api/health/'}
 
 
@@ -863,7 +873,7 @@ def serve_frontend(full_path: str):
     requested_path = (FRONTEND_DIST_DIR / full_path).resolve()
     if str(requested_path).startswith(str(FRONTEND_DIST_DIR.resolve())) and requested_path.is_file():
         return FileResponse(requested_path)
-    index_path = FRONTEND_DIST_DIR / 'index.html'
-    if index_path.exists():
-        return FileResponse(index_path)
+    frontend_index = serve_frontend_index()
+    if frontend_index is not None:
+        return frontend_index
     api_error(404, 'Route not found.')

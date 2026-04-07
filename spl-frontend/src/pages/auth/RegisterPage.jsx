@@ -183,8 +183,16 @@ export default function RegisterPage() {
         address: form.address.trim(),
       });
 
+      const authenticatedUser = authResponse?.user;
+
+      if (!authenticatedUser?.role) {
+        throw new Error(
+          "Registration completed, but the account response is missing role details."
+        );
+      }
+
       saveAuthSession(authResponse);
-      navigate(getDefaultPostLoginPath(authResponse.user.role), {
+      navigate(getDefaultPostLoginPath(authenticatedUser.role), {
         replace: true,
         state: authResponse.message
           ? {
