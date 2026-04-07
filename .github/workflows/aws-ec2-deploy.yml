@@ -72,7 +72,7 @@ jobs:
       PROD_DB_ENCRYPT: ${{ vars.PROD_DB_ENCRYPT || 'false' }}
       PROD_DB_TRUST_SERVER_CERTIFICATE: ${{ vars.PROD_DB_TRUST_SERVER_CERTIFICATE || 'true' }}
       PROD_VITE_API_BASE_URL: ${{ vars.PROD_VITE_API_BASE_URL || '/api' }}
-      PROD_VITE_ENABLE_HERO_VIDEO: ${{ vars.PROD_VITE_ENABLE_HERO_VIDEO || 'false' }}
+      PROD_VITE_ENABLE_HERO_VIDEO: ${{ vars.PROD_VITE_ENABLE_HERO_VIDEO || 'true' }}
       PROD_VITE_HERO_VIDEO_URL: ${{ secrets.PROD_VITE_HERO_VIDEO_URL }}
     steps:
       - name: Checkout repository

@@ -12,6 +12,7 @@ import SeasonStatsBar from "../../components/dashboard/SeasonStatsBar";
 import useHomeContent from "../../hooks/useHomeContent";
 import useHomeHeroStats from "../../hooks/useHomeHeroStats";
 import useTopPerformers from "../../hooks/useTopPerformers";
+import heroVideoAsset from "../../assets/videos/hero-video-optimized.mp4";
 
 function getArrayOrEmpty(value) {
   return Array.isArray(value) ? value : [];
@@ -19,9 +20,12 @@ function getArrayOrEmpty(value) {
 
 export default function HomePage() {
   const [isAnnouncementPopupOpen, setIsAnnouncementPopupOpen] = useState(true);
-  const heroVideoUrl = String(import.meta.env.VITE_HERO_VIDEO_URL || "").trim();
+  const configuredHeroVideoUrl = String(
+    import.meta.env.VITE_HERO_VIDEO_URL || ""
+  ).trim();
+  const heroVideoUrl = configuredHeroVideoUrl || heroVideoAsset;
   const heroVideoEnabled =
-    import.meta.env.VITE_ENABLE_HERO_VIDEO === "true" && heroVideoUrl.length > 0;
+    import.meta.env.VITE_ENABLE_HERO_VIDEO !== "false" && heroVideoUrl.length > 0;
   const {
     content: homeContent,
     loading: homeContentLoading,
