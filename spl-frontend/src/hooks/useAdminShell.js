@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAdminShell } from "../api/adminShellAPI";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import {
@@ -24,18 +24,25 @@ export default function useAdminShell() {
   const [shellData, setShellData] = useState(EMPTY_SHELL_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const lastSnapshotRef = useRef(JSON.stringify(EMPTY_SHELL_DATA));
 
   const loadShell = useCallback(async () => {
     try {
       setErrorMessage("");
       const response = await getAdminShell();
-      setShellData({
+      const nextShellData = {
         profile: response?.profile || null,
         badges: response?.badges || {},
         notifications: Array.isArray(response?.notifications)
           ? response.notifications
           : [],
-      });
+      };
+      const nextSnapshot = JSON.stringify(nextShellData);
+
+      if (nextSnapshot !== lastSnapshotRef.current) {
+        lastSnapshotRef.current = nextSnapshot;
+        setShellData(nextShellData);
+      }
     } catch (error) {
       setErrorMessage(
         getApiErrorMessage(error, "Unable to load the admin shell data.")

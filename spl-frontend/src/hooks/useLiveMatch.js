@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getLiveMatch } from "../api/liveMatchAPI";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import { defaultLiveMatchState } from "../utils/liveMatchStore";
@@ -7,14 +7,21 @@ export default function useLiveMatch(refreshInterval = 15000) {
   const [liveMatch, setLiveMatch] = useState(defaultLiveMatchState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const lastSnapshotRef = useRef(JSON.stringify(defaultLiveMatchState));
 
   const loadLiveMatch = useCallback(async () => {
     try {
       const response = await getLiveMatch();
-      setLiveMatch({
+      const nextLiveMatch = {
         ...defaultLiveMatchState,
         ...(response || {}),
-      });
+      };
+      const nextSnapshot = JSON.stringify(nextLiveMatch);
+
+      if (nextSnapshot !== lastSnapshotRef.current) {
+        lastSnapshotRef.current = nextSnapshot;
+        setLiveMatch(nextLiveMatch);
+      }
       setError("");
     } catch (requestError) {
       setError(

@@ -15,7 +15,7 @@ export default function useBackendStatus() {
   const checkBackend = useCallback(
     async ({ silent = false } = {}) => {
       if (!silent) {
-        setIsChecking(true);
+        setIsChecking((current) => (current ? current : true));
       }
 
       try {
@@ -24,11 +24,13 @@ export default function useBackendStatus() {
           cache: "no-store",
         });
 
-        setIsBackendReachable(response.ok);
+        setIsBackendReachable((current) =>
+          current === response.ok ? current : response.ok
+        );
       } catch {
-        setIsBackendReachable(false);
+        setIsBackendReachable((current) => (current ? false : current));
       } finally {
-        setIsChecking(false);
+        setIsChecking((current) => (current ? false : current));
       }
     },
     [healthCheckUrl]

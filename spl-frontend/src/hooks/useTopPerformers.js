@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getTopPerformersContent } from "../api/homeAPI";
 import { getApiErrorMessage } from "../utils/apiErrors";
 
@@ -8,6 +8,7 @@ export default function useTopPerformers() {
   const [performers, setPerformers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const lastSnapshotRef = useRef("");
 
   const loadTopPerformers = useCallback(
     async ({ silent = false } = {}) => {
@@ -18,7 +19,13 @@ export default function useTopPerformers() {
       try {
         setError("");
         const data = await getTopPerformersContent();
-        setPerformers(Array.isArray(data) ? data : []);
+        const nextPerformers = Array.isArray(data) ? data : [];
+        const nextSnapshot = JSON.stringify(nextPerformers);
+
+        if (nextSnapshot !== lastSnapshotRef.current) {
+          lastSnapshotRef.current = nextSnapshot;
+          setPerformers(nextPerformers);
+        }
       } catch (requestError) {
         setError(
           getApiErrorMessage(
