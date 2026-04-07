@@ -56,10 +56,14 @@ fi
 write_backend_env() {
   local db_server="${PROD_DB_SERVER:-}"
   local db_port="${PROD_DB_PORT:-1433}"
+  local db_user="${PROD_DB_USER:-}"
+  local db_password="${PROD_DB_PASSWORD:-}"
 
   if [[ "${USE_LOCAL_SQLSERVER,,}" == "true" ]]; then
     db_server="127.0.0.1"
     db_port="1433"
+    db_user="sa"
+    db_password="${SQL_SA_PASSWORD}"
   fi
 
   cat > "${APP_ROOT}/.env.production.local" <<EOF
@@ -70,8 +74,8 @@ DB_SERVER=${db_server}
 DB_PORT=${db_port}
 DB_NAME=${PROD_DB_NAME:-SPLSqlServer}
 DB_BOOTSTRAP_DATABASE=${PROD_DB_BOOTSTRAP_DATABASE:-master}
-DB_USER=${PROD_DB_USER:-}
-DB_PASSWORD=${PROD_DB_PASSWORD:-}
+DB_USER=${db_user}
+DB_PASSWORD=${db_password}
 SPL_AUTH_SECRET=${PROD_AUTH_SECRET:-}
 SPL_MONITORING_TOKEN=${PROD_MONITORING_TOKEN:-}
 CORS_ALLOWED_ORIGINS=${PROD_CORS_ALLOWED_ORIGINS:-same-origin}
@@ -215,18 +219,6 @@ ensure_local_sqlserver() {
   echo "Waiting for local SQL Server to accept connections"
   wait_for_sqlserver
 
-  if [[ -n "${PROD_DB_USER:-}" && "${PROD_DB_USER}" != "sa" ]]; then
-    echo "Ensuring application SQL login exists"
-    docker exec "$SQL_CONTAINER_NAME" bash -lc '
-      if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then
-        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -C -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = N'''"${PROD_DB_USER}"''') BEGIN CREATE LOGIN ['"${PROD_DB_USER}"'] WITH PASSWORD = N'''"${PROD_DB_PASSWORD}"'''; ALTER SERVER ROLE sysadmin ADD MEMBER ['"${PROD_DB_USER}"']; END"
-      elif [ -x /opt/mssql-tools/bin/sqlcmd ]; then
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = N'''"${PROD_DB_USER}"''') BEGIN CREATE LOGIN ['"${PROD_DB_USER}"'] WITH PASSWORD = N'''"${PROD_DB_PASSWORD}"'''; ALTER SERVER ROLE sysadmin ADD MEMBER ['"${PROD_DB_USER}"']; END"
-      else
-        exit 1
-      fi
-    '
-  fi
 }
 
 echo "Preparing deployment directories"
