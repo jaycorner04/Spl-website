@@ -146,6 +146,35 @@ jobs:
       - name: Validate EC2 and SSM target state
         shell: bash
         run: |
+          fetch_ssm_state() {
+            PING_STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
+              --query 'InstanceInformationList[0].PingStatus' \
+              --output text)
+            PLATFORM_NAME=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
+              --query 'InstanceInformationList[0].PlatformName' \
+              --output text)
+          }
+
+          wait_for_ssm_online() {
+            local phase="$1"
+            for attempt in $(seq 1 40); do
+              fetch_ssm_state
+              echo "SSM ping status: ${PING_STATUS}"
+              echo "SSM platform: ${PLATFORM_NAME}"
+
+              if [ "$PING_STATUS" = "Online" ]; then
+                return 0
+              fi
+
+              echo "SSM is not online yet during ${phase}. Waiting 15 seconds before retry ${attempt}/40..."
+              sleep 15
+            done
+
+            return 1
+          }
+
           INSTANCE_STATE=$(aws ec2 describe-instances \
             --instance-ids "$AWS_SSM_INSTANCE_ID" \
             --query 'Reservations[0].Instances[0].State.Name' \
@@ -158,37 +187,26 @@ jobs:
 
           PING_STATUS=""
           PLATFORM_NAME=""
-          for attempt in $(seq 1 40); do
-            PING_STATUS=$(aws ssm describe-instance-information \
-              --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
-              --query 'InstanceInformationList[0].PingStatus' \
-              --output text)
-            PLATFORM_NAME=$(aws ssm describe-instance-information \
-              --filters "Key=InstanceIds,Values=$AWS_SSM_INSTANCE_ID" \
-              --query 'InstanceInformationList[0].PlatformName' \
-              --output text)
-
-            echo "SSM ping status: ${PING_STATUS}"
-            echo "SSM platform: ${PLATFORM_NAME}"
-
-            if [ "$PING_STATUS" = "Online" ]; then
-              break
-            fi
-
-            echo "SSM is not online yet. Waiting 15 seconds before retry ${attempt}/40..."
-            sleep 15
-          done
-
-          if [ "$PING_STATUS" = "Online" ]; then
+          if wait_for_ssm_online "initial validation"; then
             echo "SSM target is online."
-          elif [ "$PING_STATUS" = "ConnectionLost" ] && [ "$PLATFORM_NAME" != "None" ] && [ -n "$PLATFORM_NAME" ]; then
-            echo "SSM target is registered but currently ConnectionLost."
-            echo "Proceeding so the deploy command can queue while the agent reconnects."
-          else
-            echo "SSM instance must be registered before deployment."
-            echo "Check that the EC2 instance has an IAM instance profile with AmazonSSMManagedInstanceCore, that amazon-ssm-agent is running, and that the instance has outbound access to SSM endpoints."
-            exit 1
+            exit 0
           fi
+
+          if [ "$PING_STATUS" = "ConnectionLost" ] && [ "$PLATFORM_NAME" != "None" ] && [ -n "$PLATFORM_NAME" ]; then
+            echo "SSM target is registered but ConnectionLost. Rebooting instance to recover connectivity."
+            aws ec2 reboot-instances --instance-ids "$AWS_SSM_INSTANCE_ID"
+            aws ec2 wait instance-running --instance-ids "$AWS_SSM_INSTANCE_ID"
+            aws ec2 wait instance-status-ok --instance-ids "$AWS_SSM_INSTANCE_ID"
+
+            if wait_for_ssm_online "post-reboot validation"; then
+              echo "SSM target recovered after reboot."
+              exit 0
+            fi
+          fi
+
+          echo "SSM instance must be registered and Online before deployment."
+          echo "Check that the EC2 instance has an IAM instance profile with AmazonSSMManagedInstanceCore, that amazon-ssm-agent is running, and that the instance has outbound access to SSM endpoints."
+          exit 1
 
       - name: Build SSM command payload
         shell: bash
@@ -316,20 +334,72 @@ jobs:
       - name: Wait for SSM completion
         shell: bash
         run: |
-          COMMAND_ID="${{ steps.ssm.outputs.command_id }}"
           INSTANCE_ID="${AWS_SSM_INSTANCE_ID}"
-          for attempt in $(seq 1 120); do
-            STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo "Pending")
-            echo "SSM status: $STATUS"
-            if [ "$STATUS" = "Success" ]; then
-              exit 0
-            fi
-            if [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelling" ]; then
-              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-              exit 1
-            fi
-            sleep 15
-          done
-          echo "Timed out waiting for SSM deployment completion."
-          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-          exit 1
+          COMMAND_FILE="out/ssm-command.json"
+
+          wait_for_ssm_online() {
+            local phase="$1"
+            for attempt in $(seq 1 40); do
+              PING_STATUS=$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+                --query 'InstanceInformationList[0].PingStatus' \
+                --output text)
+              echo "SSM ping status during ${phase}: ${PING_STATUS}"
+              if [ "$PING_STATUS" = "Online" ]; then
+                return 0
+              fi
+              sleep 15
+            done
+            return 1
+          }
+
+          send_deploy_command() {
+            aws ssm send-command --cli-input-json "file://${COMMAND_FILE}" --query 'Command.CommandId' --output text
+          }
+
+          wait_for_command() {
+            local command_id="$1"
+            for attempt in $(seq 1 120); do
+              STATUS=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo "Pending")
+              echo "SSM status: $STATUS"
+              if [ "$STATUS" = "Success" ]; then
+                return 0
+              fi
+              if [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelling" ]; then
+                STATUS_DETAILS=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query 'StatusDetails' --output text 2>/dev/null || echo "")
+                echo "SSM status details: $STATUS_DETAILS"
+                if [ "$STATUS_DETAILS" = "Undeliverable" ]; then
+                  return 2
+                fi
+                aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" || true
+                return 1
+              fi
+              sleep 15
+            done
+            echo "Timed out waiting for SSM deployment completion."
+            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" || true
+            return 1
+          }
+
+          COMMAND_ID="${{ steps.ssm.outputs.command_id }}"
+          RESULT=0
+          if wait_for_command "$COMMAND_ID"; then
+            exit 0
+          else
+            RESULT=$?
+          fi
+
+          if [ "$RESULT" -eq 2 ]; then
+            echo "SSM command was undeliverable. Rebooting instance and retrying once."
+            aws ec2 reboot-instances --instance-ids "$INSTANCE_ID"
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+            aws ec2 wait instance-status-ok --instance-ids "$INSTANCE_ID"
+            wait_for_ssm_online "undeliverable recovery"
+
+            COMMAND_ID=$(send_deploy_command)
+            echo "Retried SSM command: $COMMAND_ID"
+            wait_for_command "$COMMAND_ID"
+            exit $?
+          fi
+
+          exit "$RESULT"
