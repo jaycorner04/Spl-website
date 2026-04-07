@@ -58,12 +58,20 @@ write_backend_env() {
   local db_port="${PROD_DB_PORT:-1433}"
   local db_user="${PROD_DB_USER:-}"
   local db_password="${PROD_DB_PASSWORD:-}"
+  local db_encrypt="${PROD_DB_ENCRYPT:-false}"
+  local db_trust_server_certificate="${PROD_DB_TRUST_SERVER_CERTIFICATE:-true}"
 
   if [[ "${USE_LOCAL_SQLSERVER,,}" == "true" ]]; then
     db_server="127.0.0.1"
     db_port="1433"
     db_user="sa"
     db_password="${SQL_SA_PASSWORD}"
+    db_encrypt="false"
+    db_trust_server_certificate="true"
+  elif [[ "${db_server}" == *.rds.amazonaws.com ]]; then
+    echo "Detected Amazon RDS SQL Server endpoint. Enabling trusted TLS for Linux SQL client compatibility."
+    db_encrypt="true"
+    db_trust_server_certificate="true"
   fi
 
   cat > "${APP_ROOT}/.env.production.local" <<EOF
@@ -80,8 +88,8 @@ SPL_AUTH_SECRET=${PROD_AUTH_SECRET:-}
 SPL_MONITORING_TOKEN=${PROD_MONITORING_TOKEN:-}
 CORS_ALLOWED_ORIGINS=${PROD_CORS_ALLOWED_ORIGINS:-same-origin}
 RATE_LIMIT_ENABLED=${PROD_RATE_LIMIT_ENABLED:-true}
-DB_ENCRYPT=${PROD_DB_ENCRYPT:-false}
-DB_TRUST_SERVER_CERTIFICATE=${PROD_DB_TRUST_SERVER_CERTIFICATE:-true}
+DB_ENCRYPT=${db_encrypt}
+DB_TRUST_SERVER_CERTIFICATE=${db_trust_server_certificate}
 EOF
 }
 
