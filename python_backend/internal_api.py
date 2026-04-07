@@ -498,7 +498,7 @@ def require_item_write_access(resource_name: str, request: Request, existing_rec
     return require_privileged_access(request)
 
 
-def serve_frontend_index() -> FileResponse | None:
+def serve_frontend_index():
     index_path = FRONTEND_DIST_DIR / 'index.html'
     if index_path.exists():
         return FileResponse(index_path)
@@ -506,7 +506,7 @@ def serve_frontend_index() -> FileResponse | None:
 
 
 @app.get('/')
-def root() -> FileResponse | dict[str, Any]:
+def root():
     frontend_index = serve_frontend_index()
     if frontend_index is not None:
         return frontend_index
