@@ -5,9 +5,12 @@ import {
   TEAMS_UPDATED_STORAGE_KEY,
 } from "../utils/teamSync";
 
-export default function useTeams() {
-  const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function useTeams(options = {}) {
+  const { enabled = true, initialData = [] } = options;
+  const [teams, setTeams] = useState(
+    Array.isArray(initialData) ? initialData : []
+  );
+  const [loading, setLoading] = useState(Boolean(enabled));
   const [error, setError] = useState("");
 
   const fetchTeams = useCallback(async (isMountedRef) => {
@@ -45,6 +48,13 @@ export default function useTeams() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setTeams(Array.isArray(initialData) ? initialData : []);
+      setLoading(false);
+      setError("");
+      return undefined;
+    }
+
     const isMountedRef = { current: true };
 
     fetchTeams(isMountedRef);
@@ -67,7 +77,7 @@ export default function useTeams() {
       window.removeEventListener(TEAMS_UPDATED_EVENT, handleTeamsUpdated);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [fetchTeams]);
+  }, [enabled, fetchTeams, initialData]);
 
   return { teams, loading, error };
 }

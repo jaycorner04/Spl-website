@@ -169,10 +169,26 @@ function TeamMark({ row, sizeClass = "h-6 w-6", wrapperClass = "h-10 w-10" }) {
   );
 }
 
-export default function PointsTableSection({ standingsData }) {
+export default function PointsTableSection({
+  standingsData,
+  teams: prefetchedTeams = null,
+  franchises: prefetchedFranchises = null,
+}) {
   const [activeView, setActiveView] = useState("season");
-  const { teams } = useTeams();
-  const { franchises } = useFranchises();
+  const useRemoteTeams = !Array.isArray(prefetchedTeams);
+  const useRemoteFranchises = !Array.isArray(prefetchedFranchises);
+  const { teams: loadedTeams } = useTeams({
+    enabled: useRemoteTeams,
+    initialData: prefetchedTeams || [],
+  });
+  const { franchises: loadedFranchises } = useFranchises({
+    enabled: useRemoteFranchises,
+    initialData: prefetchedFranchises || [],
+  });
+  const teams = Array.isArray(prefetchedTeams) ? prefetchedTeams : loadedTeams;
+  const franchises = Array.isArray(prefetchedFranchises)
+    ? prefetchedFranchises
+    : loadedFranchises;
   const approvedFranchiseIds = new Set(
     (franchises || [])
       .filter((item) => {

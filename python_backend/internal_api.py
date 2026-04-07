@@ -115,6 +115,10 @@ app.mount('/media', StaticFiles(directory=str(MEDIA_DIR)), name='media')
 @app.on_event('startup')
 def on_startup() -> None:
     initialize_database()
+    try:
+        get_home_payload()
+    except Exception as error:
+        print(f'Home payload warmup skipped: {error}')
 
 
 @app.middleware('http')

@@ -10,8 +10,6 @@ import LatestNewsSection from "../../components/common/LatestNewsSection";
 import SponsorSection from "../../components/common/SponsorSection";
 import SeasonStatsBar from "../../components/dashboard/SeasonStatsBar";
 import useHomeContent from "../../hooks/useHomeContent";
-import useHomeHeroStats from "../../hooks/useHomeHeroStats";
-import useTopPerformers from "../../hooks/useTopPerformers";
 import heroVideoAsset from "../../assets/videos/hero-video-optimized.mp4";
 
 function getArrayOrEmpty(value) {
@@ -33,19 +31,30 @@ export default function HomePage() {
   } = useHomeContent();
   const franchiseItems = getArrayOrEmpty(homeContent?.franchises);
   const teamItems = getArrayOrEmpty(homeContent?.teams);
-  const { stats, error: heroStatsError, loading: heroStatsLoading } =
-    useHomeHeroStats({
-      prefetchedFranchises: franchiseItems,
-      prefetchedTeams: teamItems,
-    });
-  const {
-    performers: topPerformers,
-    error: topPerformersError,
-    loading: topPerformersLoading,
-  } = useTopPerformers();
+  const liveHeroStats = getArrayOrEmpty(homeContent?.heroStats);
   const liveAnnouncements = getArrayOrEmpty(homeContent?.announcements);
   const announcementItems = liveAnnouncements;
-  const topPerformerItems = topPerformers;
+  const topPerformerItems = getArrayOrEmpty(homeContent?.topPerformers);
+  const seasonStats = getArrayOrEmpty(homeContent?.seasonStats);
+  const stats =
+    liveHeroStats.length > 0
+      ? liveHeroStats
+      : [
+          {
+            value: String(
+              franchiseItems.length > 0 ? franchiseItems.length : teamItems.length
+            ),
+            label: "Franchises",
+          },
+          {
+            value: "0",
+            label: "Players",
+          },
+          {
+            value: "0",
+            label: "Matches",
+          },
+        ];
   const closeAnnouncementPopup = useCallback(() => {
     setIsAnnouncementPopupOpen(false);
   }, []);
@@ -154,11 +163,11 @@ export default function HomePage() {
               ))}
             </div>
 
-            {heroStatsError ? (
+            {homeContentError ? (
               <p className="mt-4 text-xs text-slate-200">
                 Live league stats are temporarily unavailable right now.
               </p>
-            ) : heroStatsLoading ? (
+            ) : homeContentLoading ? (
               <p className="mt-4 text-xs text-slate-200">Refreshing live league stats...</p>
             ) : null}
           </div>
@@ -197,16 +206,20 @@ export default function HomePage() {
         </div>
 
         <div id="points-table">
-          <PointsTableSection standingsData={homeContent?.standings} />
+          <PointsTableSection
+            standingsData={homeContent?.standings}
+            teams={teamItems}
+            franchises={franchiseItems}
+          />
         </div>
 
         <div id="top-performers">
           <TopPerformersSection items={topPerformerItems} />
-          {topPerformersError ? (
+          {homeContentError ? (
             <p className="spl-home-shell pb-2 text-center text-xs text-slate-500">
               Top performer scores are temporarily unavailable right now.
             </p>
-          ) : topPerformersLoading ? (
+          ) : homeContentLoading ? (
             <p className="spl-home-shell pb-2 text-center text-xs text-slate-500">
               Refreshing live top performer scores...
             </p>
@@ -217,7 +230,11 @@ export default function HomePage() {
           <SponsorSection sponsorsData={homeContent?.sponsors} />
         </div>
 
-        <SeasonStatsBar />
+        <SeasonStatsBar
+          stats={seasonStats}
+          loading={homeContentLoading}
+          error={homeContentError}
+        />
       </div>
     </>
   );

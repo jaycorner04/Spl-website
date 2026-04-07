@@ -71,6 +71,11 @@ def normalize_status(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def is_approved_status(value: Any) -> bool:
+    normalized = normalize_status(value)
+    return normalized in {"", "approved"}
+
+
 def format_lakhs(amount: Any, digits: int = 1) -> str:
     lakhs = safe_number(amount) / 100000
     formatted = f"{lakhs:.{digits}f}".rstrip("0").rstrip(".")
@@ -151,9 +156,16 @@ def build_performer_stats(player: dict[str, Any], performance: dict[str, Any]) -
     }
 
 
-def get_top_performers(limit: int = 5) -> list[dict[str, Any]]:
-    players = list_collection("players")
-    performances = list_collection("performances")
+def get_top_performers(
+    limit: int = 5,
+    *,
+    players: list[dict[str, Any]] | None = None,
+    performances: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    players = list(players if players is not None else list_collection("players"))
+    performances = list(
+        performances if performances is not None else list_collection("performances")
+    )
     players_by_id = {int(player.get("id") or 0): player for player in players}
     performers: list[dict[str, Any]] = []
 
@@ -201,6 +213,131 @@ def get_compact_top_performers(limit: int = 5) -> list[dict[str, Any]]:
     ]
 
 
+def build_home_hero_stats(
+    public_franchises: list[dict[str, Any]],
+    public_teams: list[dict[str, Any]],
+    public_players: list[dict[str, Any]],
+    public_matches: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    franchise_total = len(public_franchises) if public_franchises else len(public_teams)
+    return [
+        {"value": str(franchise_total), "label": "Franchises"},
+        {"value": str(len(public_players)), "label": "Players"},
+        {"value": str(len(public_matches)), "label": "Matches"},
+    ]
+
+
+def build_home_season_stats(
+    public_matches: list[dict[str, Any]],
+    public_players: list[dict[str, Any]],
+    public_performances: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    totals = {
+        "runs": 0,
+        "wickets": 0,
+        "sixes": 0,
+        "fours": 0,
+    }
+
+    for performance in public_performances:
+        totals["runs"] += int(safe_number(performance.get("runs")))
+        totals["wickets"] += int(safe_number(performance.get("wickets")))
+        totals["sixes"] += int(safe_number(performance.get("sixes")))
+        totals["fours"] += int(safe_number(performance.get("fours")))
+
+    fans_engaged = max(len(public_players), 0) * 80
+
+    def format_metric(value: Any) -> str:
+        return f"{int(safe_number(value)):,}"
+
+    if fans_engaged >= 1000:
+        fans_label = f"{round(fans_engaged / 1000, 1):g}K+"
+    else:
+        fans_label = format_metric(fans_engaged)
+
+    return [
+        {"label": "Total Matches", "value": format_metric(len(public_matches))},
+        {"label": "Total Runs", "value": format_metric(totals["runs"])},
+        {"label": "Total Wickets", "value": format_metric(totals["wickets"])},
+        {"label": "Sixes", "value": format_metric(totals["sixes"])},
+        {"label": "Fours", "value": format_metric(totals["fours"])},
+        {"label": "Fans Engaged", "value": fans_label},
+    ]
+
+
+def build_public_home_entities(
+    teams: list[dict[str, Any]],
+    franchises: list[dict[str, Any]],
+    players: list[dict[str, Any]],
+    performances: list[dict[str, Any]],
+    matches: list[dict[str, Any]],
+) -> dict[str, Any]:
+    public_franchises = [
+        franchise for franchise in franchises if is_approved_status(franchise.get("status"))
+    ]
+    approved_franchise_ids = {
+        str(int(safe_number(franchise.get("id"))))
+        for franchise in public_franchises
+        if int(safe_number(franchise.get("id"))) > 0
+    }
+    public_teams = [
+        team
+        for team in teams
+        if not str(team.get("franchise_id") or "").strip()
+        or str(team.get("franchise_id")) in approved_franchise_ids
+    ]
+    public_team_ids = {
+        int(safe_number(team.get("id")))
+        for team in public_teams
+        if int(safe_number(team.get("id"))) > 0
+    }
+    public_team_names = {
+        str(team.get("team_name") or "").strip().lower()
+        for team in public_teams
+        if str(team.get("team_name") or "").strip()
+    }
+    public_players = [
+        player
+        for player in players
+        if (
+            int(safe_number(player.get("team_id"))) in public_team_ids
+            or str(player.get("team_name") or "").strip().lower() in public_team_names
+            or (
+                not int(safe_number(player.get("team_id")))
+                and not str(player.get("team_name") or "").strip()
+            )
+        )
+    ]
+    public_performances = [
+        performance
+        for performance in performances
+        if (
+            int(safe_number(performance.get("team_id"))) in public_team_ids
+            or str(performance.get("team_name") or "").strip().lower() in public_team_names
+        )
+    ]
+    public_matches = [
+        match
+        for match in matches
+        if (
+            not str(match.get("teamA") or "").strip()
+            or str(match.get("teamA") or "").strip().lower() in public_team_names
+        )
+        and (
+            not str(match.get("teamB") or "").strip()
+            or str(match.get("teamB") or "").strip().lower() in public_team_names
+        )
+    ]
+
+    return {
+        "franchises": public_franchises,
+        "teams": public_teams,
+        "players": public_players,
+        "performances": public_performances,
+        "matches": public_matches,
+    }
+
+
 def build_home_standings_rows(source_rows: list[dict[str, Any]] | None, teams: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized_rows = list(source_rows or [])
     known_names = {str(row.get("team") or "").lower() for row in normalized_rows}
@@ -242,15 +379,47 @@ def get_home_payload() -> dict[str, Any]:
     home = get_project_data("home") or {}
     teams = list_collection("teams")
     franchises = list_collection("franchises")
+    players = list_collection("players")
+    performances = list_collection("performances")
+    matches = list_collection("matches")
+    public_entities = build_public_home_entities(
+        teams,
+        franchises,
+        players,
+        performances,
+        matches,
+    )
+    public_teams = public_entities["teams"]
+    public_franchises = public_entities["franchises"]
+    public_players = public_entities["players"]
+    public_performances = public_entities["performances"]
+    public_matches = public_entities["matches"]
     payload = {
         **home,
-        "teams": teams,
-        "franchises": franchises,
+        "teams": public_teams,
+        "franchises": public_franchises,
         "standings": {
             **(home.get("standings") or {}),
-            "season": build_home_standings_rows((home.get("standings") or {}).get("season"), teams),
+            "season": build_home_standings_rows(
+                (home.get("standings") or {}).get("season"),
+                public_teams,
+            ),
         },
-        "topPerformers": get_top_performers(),
+        "heroStats": build_home_hero_stats(
+            public_franchises,
+            public_teams,
+            public_players,
+            public_matches,
+        ),
+        "seasonStats": build_home_season_stats(
+            public_matches,
+            public_players,
+            public_performances,
+        ),
+        "topPerformers": get_top_performers(
+            players=public_players,
+            performances=public_performances,
+        ),
     }
 
     with _home_payload_cache_lock:

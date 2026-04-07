@@ -5,9 +5,12 @@ import {
   FRANCHISES_UPDATED_STORAGE_KEY,
 } from "../utils/franchiseSync";
 
-export default function useFranchises() {
-  const [franchises, setFranchises] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function useFranchises(options = {}) {
+  const { enabled = true, initialData = [] } = options;
+  const [franchises, setFranchises] = useState(
+    Array.isArray(initialData) ? initialData : []
+  );
+  const [loading, setLoading] = useState(Boolean(enabled));
   const [error, setError] = useState("");
 
   const fetchFranchises = useCallback(async (isMountedRef) => {
@@ -44,6 +47,13 @@ export default function useFranchises() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setFranchises(Array.isArray(initialData) ? initialData : []);
+      setLoading(false);
+      setError("");
+      return undefined;
+    }
+
     const isMountedRef = { current: true };
 
     fetchFranchises(isMountedRef);
@@ -69,7 +79,7 @@ export default function useFranchises() {
       );
       window.removeEventListener("storage", handleStorage);
     };
-  }, [fetchFranchises]);
+  }, [enabled, fetchFranchises, initialData]);
 
   return { franchises, loading, error };
 }

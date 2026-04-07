@@ -1,7 +1,9 @@
-import useSeasonStats from "../../hooks/useSeasonStats";
-
-export default function SeasonStatsBar() {
-  const { stats: seasonStats, loading, error } = useSeasonStats();
+export default function SeasonStatsBar({
+  stats = [],
+  loading = false,
+  error = "",
+}) {
+  const seasonStats = Array.isArray(stats) ? stats : [];
   const hasStats = seasonStats.length > 0;
 
   return (
