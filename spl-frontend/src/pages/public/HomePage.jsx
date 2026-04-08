@@ -78,15 +78,11 @@ export default function HomePage() {
     const prefersReducedMotion = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)"
     )?.matches;
-    const isDesktopViewport = window.matchMedia?.("(min-width: 1024px)")?.matches;
-    const saveDataEnabled = Boolean(window.navigator?.connection?.saveData);
 
     return Boolean(
       heroVideoEnabled &&
         heroVideoUrl &&
-        isDesktopViewport &&
-        !prefersReducedMotion &&
-        !saveDataEnabled
+        !prefersReducedMotion
     );
   }, [heroVideoEnabled, heroVideoUrl]);
 
@@ -113,7 +109,7 @@ export default function HomePage() {
               muted
               loop
               playsInline
-              preload="none"
+              preload="metadata"
               className="h-full w-full object-cover brightness-110 contrast-110 saturate-125"
             >
               <source src={heroVideoUrl} type="video/mp4" />
