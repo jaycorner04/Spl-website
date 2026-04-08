@@ -103,14 +103,14 @@ export default function HomePage() {
         <>
         <section className="relative overflow-hidden bg-[#07111f]">
         {shouldRenderHeroVideo ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#07111f]">
+          <div className="absolute inset-0 bg-[#07111f]">
             <video
               autoPlay
               muted
               loop
               playsInline
               preload="metadata"
-              className="h-full w-full object-contain brightness-110 contrast-110 saturate-125"
+              className="h-full w-full object-fill brightness-110 contrast-110 saturate-125"
             >
               <source src={heroVideoUrl} type="video/mp4" />
               Your browser does not support the video tag.
