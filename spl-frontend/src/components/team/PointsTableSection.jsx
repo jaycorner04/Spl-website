@@ -300,107 +300,8 @@ export default function PointsTableSection({
               : "Points table data will appear here once league standings are published."}
           </div>
         ) : (
-          <>
-            <div className="grid gap-4 p-4 sm:p-5 md:hidden">
-              {isPlayoffView
-                ? playoffStandings.map((row, index) => (
-                <article
-                  key={`${row.seed}-${row.team}-mobile`}
-                  className={`rounded-[22px] border border-slate-200 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${
-                    index < 2
-                      ? "bg-[linear-gradient(135deg,rgba(56,189,248,0.10),white_65%)]"
-                      : "bg-[linear-gradient(135deg,rgba(249,115,22,0.08),white_65%)]"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 font-condensed text-xs uppercase tracking-[0.18em] text-slate-700">
-                        {row.seed}
-                      </div>
-                      <TeamMark row={row} />
-                    </div>
-                    <span className="inline-flex rounded-full bg-[#fff7d6] px-3 py-1.5 text-[11px] font-medium text-[#8f6b10]">
-                      {row.status}
-                    </span>
-                  </div>
-
-                  <div className="mt-4">
-                    <h3 className="text-lg font-semibold text-slate-900">{row.team}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{row.stage}</p>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3">
-                    <div className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                      Opponent
-                    </div>
-                    <div className="mt-1 font-medium text-slate-800">{row.opponent}</div>
-                  </div>
-                </article>
-              ))
-                : standings.map((row) => (
-                <article
-                  key={`${row.pos}-${row.team}-mobile`}
-                  className={`rounded-[22px] border border-slate-200 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${getRowAccent(
-                    row.pos
-                  )}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-full font-condensed text-sm ${getRankBadgeClass(
-                          row.pos
-                        )}`}
-                      >
-                        {row.pos}
-                      </div>
-                      <TeamMark row={row} />
-                    </div>
-
-                    <div className="text-right">
-                      <div className="font-heading text-2xl leading-none text-[#b88a2a]">
-                        {row.pts}
-                      </div>
-                      <div className="mt-1 font-condensed text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                        Pts
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <h3 className="text-lg font-semibold text-slate-900">{row.team}</h3>
-                    <p className="mt-1 text-sm text-slate-500">SPL Franchise</p>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
-                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">P</div>
-                      <div className="mt-1 font-semibold text-slate-800">{row.played}</div>
-                    </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
-                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">W</div>
-                      <div className="mt-1 font-semibold text-slate-800">{row.won}</div>
-                    </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
-                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">L</div>
-                      <div className="mt-1 font-semibold text-slate-800">{row.lost}</div>
-                    </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
-                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">NRR</div>
-                      <div
-                        className={`mt-1 font-semibold ${
-                          row.nrr.startsWith("+") ? "text-emerald-500" : "text-red-500"
-                        }`}
-                      >
-                        {row.nrr}
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            <div className="hidden overflow-x-auto md:block">
-              <table className="min-w-full border-collapse">
+          <div className="overflow-x-auto">
+              <table className="min-w-[640px] border-collapse md:min-w-full">
                 <thead>
                   {isPlayoffView ? (
                     <tr className="border-b border-slate-200 bg-[#0f2447]">
@@ -441,7 +342,7 @@ export default function PointsTableSection({
                       </td>
                       <td className="px-4 py-4 text-sm font-medium text-slate-900 sm:px-5 sm:text-base">
                         <div className="flex items-center gap-3">
-                          <TeamMark row={row} wrapperClass="h-11 w-11" sizeClass="h-6 w-6 sm:h-7 sm:w-7" />
+                          <TeamMark row={row} wrapperClass="h-10 w-10 sm:h-11 sm:w-11" sizeClass="h-5 w-5 sm:h-7 sm:w-7" />
                           <div>
                             <div className="font-semibold text-slate-900">{row.team}</div>
                             <div className="font-condensed text-[11px] uppercase tracking-[0.18em] text-slate-400">
@@ -476,7 +377,7 @@ export default function PointsTableSection({
 
                       <td className="px-4 py-4 text-sm font-medium text-slate-900 sm:px-5 sm:text-base">
                         <div className="flex items-center gap-3">
-                          <TeamMark row={row} wrapperClass="h-11 w-11" sizeClass="h-6 w-6 sm:h-7 sm:w-7" />
+                          <TeamMark row={row} wrapperClass="h-10 w-10 sm:h-11 sm:w-11" sizeClass="h-5 w-5 sm:h-7 sm:w-7" />
                           <div>
                             <div className="font-semibold text-slate-900">{row.team}</div>
                             <div className="font-condensed text-[11px] uppercase tracking-[0.18em] text-slate-400">
@@ -502,8 +403,7 @@ export default function PointsTableSection({
                   ))}
                 </tbody>
               </table>
-            </div>
-          </>
+          </div>
         )}
       </div>
     </section>
