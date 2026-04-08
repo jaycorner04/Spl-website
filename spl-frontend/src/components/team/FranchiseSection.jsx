@@ -124,18 +124,18 @@ export default function FranchiseSection({
           No franchises found.
         </div>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {formattedFranchises.map((franchise) => (
             <RouteAction
               key={franchise.id}
               to={franchise.route}
               className="group block h-full text-left"
             >
-              <div className="relative flex h-full min-h-[290px] flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white text-center shadow-[0_14px_38px_rgba(15,23,42,0.12),0_0_0_1px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#9dd4ff] hover:bg-[#dff1ff] hover:shadow-[0_18px_44px_rgba(96,165,250,0.22)]">
-                <div className="pointer-events-none absolute left-1/2 top-[40%] h-[165px] w-[180%] -translate-x-1/2 rounded-[50%] bg-[rgba(15,23,42,0.05)] transition-colors duration-300 group-hover:bg-[#cbe8ff]" />
+              <div className="relative flex h-full min-h-[252px] flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white text-center shadow-[0_14px_38px_rgba(15,23,42,0.12),0_0_0_1px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#9dd4ff] hover:bg-[#dff1ff] hover:shadow-[0_18px_44px_rgba(96,165,250,0.22)]">
+                <div className="pointer-events-none absolute left-1/2 top-[37%] h-[142px] w-[180%] -translate-x-1/2 rounded-[50%] bg-[rgba(15,23,42,0.05)] transition-colors duration-300 group-hover:bg-[#cbe8ff]" />
 
-                <div className="relative z-10 flex min-h-[132px] items-end justify-center px-5 pt-6">
-                  <div className="flex h-[104px] w-[104px] items-center justify-center overflow-hidden p-1 sm:h-[114px] sm:w-[114px]">
+                <div className="relative z-10 flex min-h-[110px] items-end justify-center px-4 pt-5">
+                  <div className="flex h-[84px] w-[84px] items-center justify-center overflow-hidden p-1 sm:h-[94px] sm:w-[94px]">
                     {franchise.logo ? (
                       <img
                         src={franchise.logo}
@@ -152,7 +152,7 @@ export default function FranchiseSection({
                       />
                     ) : (
                       <span
-                        className="font-heading text-[2rem] tracking-[0.08em] text-[#0f172a] transition-colors duration-300 group-hover:text-[#0f2742]"
+                        className="font-heading text-[1.7rem] tracking-[0.08em] text-[#0f172a] transition-colors duration-300 group-hover:text-[#0f2742]"
                       >
                         {franchise.short}
                       </span>
@@ -160,39 +160,39 @@ export default function FranchiseSection({
                   </div>
                 </div>
 
-                <div className="relative z-10 mt-auto flex min-h-[145px] flex-1 flex-col px-4 pb-6 pt-10">
-                  <h3 className="line-clamp-2 font-body text-[1.7rem] font-bold leading-tight tracking-[-0.03em] text-[#0f172a] transition-colors duration-300 group-hover:text-[#0f2742]">
+                <div className="relative z-10 mt-auto flex min-h-[124px] flex-1 flex-col px-4 pb-5 pt-8">
+                  <h3 className="line-clamp-2 font-body text-[1.45rem] font-bold leading-tight tracking-[-0.03em] text-[#0f172a] transition-colors duration-300 group-hover:text-[#0f2742]">
                     {franchise.name}
                   </h3>
-                  <p className="mt-2 text-sm text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
+                  <p className="mt-1.5 text-xs text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
                     {franchise.city}
                   </p>
-                  <p className="mt-1 text-sm text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
+                  <p className="mt-1 text-xs text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
                     Owner: {franchise.owner}
                   </p>
 
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-left transition-colors duration-300 group-hover:border-[#9dcdf0] group-hover:bg-[#edf7ff]">
+                  <div className="mt-3.5 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-left transition-colors duration-300 group-hover:border-[#9dcdf0] group-hover:bg-[#edf7ff]">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-condensed text-xs uppercase tracking-[0.2em] text-slate-500 transition-colors duration-300 group-hover:text-[#4a6c89]">
+                      <p className="font-condensed text-[10px] uppercase tracking-[0.18em] text-slate-500 transition-colors duration-300 group-hover:text-[#4a6c89]">
                         Owned Teams
                       </p>
-                      <span className="rounded-full border border-[#b88a2a]/30 bg-[#fff7df] px-3 py-1 font-condensed text-xs uppercase tracking-[0.18em] text-[#b88a2a] transition-colors duration-300 group-hover:border-[#9dcdf0] group-hover:bg-white/80 group-hover:text-[#2c618f]">
+                      <span className="rounded-full border border-[#b88a2a]/30 bg-[#fff7df] px-2.5 py-1 font-condensed text-[10px] uppercase tracking-[0.16em] text-[#b88a2a] transition-colors duration-300 group-hover:border-[#9dcdf0] group-hover:bg-white/80 group-hover:text-[#2c618f]">
                         {Math.min(franchise.linkedTeams.length, 3)}/3
                       </span>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {franchise.linkedTeams.length > 0 ? (
                         franchise.linkedTeams.map((team) => (
                           <span
                             key={team.id}
-                            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors duration-300 group-hover:bg-[#d8ecfb] group-hover:text-[#0f2742]"
+                            className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition-colors duration-300 group-hover:bg-[#d8ecfb] group-hover:text-[#0f2742]"
                           >
                             {team.name}
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
+                        <span className="text-[11px] text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
                           No teams linked yet
                         </span>
                       )}
