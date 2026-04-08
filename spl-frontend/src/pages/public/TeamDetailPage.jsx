@@ -8,9 +8,9 @@ import usePlayers from "../../hooks/usePlayers";
 import useTeams from "../../hooks/useTeams";
 import { getMediaUrl } from "../../utils/media";
 import {
+  findTeamBrandReference,
   getFallbackColor,
   getShortName,
-  getTeamBrandReference,
 } from "../../utils/teamBranding";
 
 function getPlayerColor(playerId = 0) {
@@ -113,7 +113,7 @@ export default function TeamDetailPage() {
     );
   }
 
-  const teamBrand = getTeamBrandReference(team.team_name);
+  const teamBrand = findTeamBrandReference(team.team_name);
   const formattedTeam = {
     ...(teamBrand || {}),
     id: team.id,

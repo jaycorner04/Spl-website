@@ -1,22 +1,57 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import SectionHeader from "../../components/common/SectionHeader";
 import RouteAction from "../../components/common/RouteAction";
 import TeamsGrid from "../../components/team/TeamsGrid";
+import { getStandings } from "../../api/homeAPI";
 import useFranchises from "../../hooks/useFranchises";
 import useTeams from "../../hooks/useTeams";
+import { getApiErrorMessage } from "../../utils/apiErrors";
 import { getMediaUrl } from "../../utils/media";
 import {
+  findTeamBrandReference,
   getFallbackColor,
   getShortName,
-  getTeamBrandReference,
 } from "../../utils/teamBranding";
 
 export default function TeamsPage() {
   const [searchParams] = useSearchParams();
   const { teams, loading, error } = useTeams();
   const { franchises } = useFranchises();
+  const [standingsData, setStandingsData] = useState({});
   const franchiseId = searchParams.get("franchiseId") || "";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchStandings() {
+      try {
+        const data = await getStandings();
+
+        if (isMounted) {
+          setStandingsData(data && typeof data === "object" ? data : {});
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          console.error(
+            "Teams page standings fetch error:",
+            getApiErrorMessage(
+              requestError,
+              "Unable to load live standings for the teams page."
+            )
+          );
+          setStandingsData({});
+        }
+      }
+    }
+
+    fetchStandings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const approvedFranchiseIds = useMemo(
     () =>
       new Set(
@@ -55,23 +90,53 @@ export default function TeamsPage() {
     );
   }, [approvedFranchiseIds, franchiseId, teams]);
 
-  const formattedTeams = visibleTeams.map((team, index) => {
-    const reference = getTeamBrandReference(team.team_name, index);
+  const standingsByTeamName = useMemo(() => {
+    const seasonRows = Array.isArray(standingsData?.season)
+      ? standingsData.season
+      : [];
+
+    return seasonRows.reduce((accumulator, row) => {
+      const key = String(row?.team || "")
+        .trim()
+        .toLowerCase();
+
+      if (!key) {
+        return accumulator;
+      }
+
+      accumulator[key] = {
+        wins: Number(row?.won ?? 0),
+        losses: Number(row?.lost ?? 0),
+        points: Number(row?.pts ?? 0),
+        nrr: String(row?.nrr ?? "0.000"),
+      };
+
+      return accumulator;
+    }, {});
+  }, [standingsData]);
+
+  const formattedTeams = visibleTeams.map((team) => {
+    const reference = findTeamBrandReference(team.team_name);
+    const liveStanding =
+      standingsByTeamName[String(team.team_name || "").trim().toLowerCase()] ||
+      {};
+    const safeColor =
+      reference?.color || getFallbackColor(team.primary_color) || "#334155";
 
     return {
       id: team.id,
-      shortName: getShortName(team.team_name || reference.teamName),
-      teamName: team.team_name || reference.teamName,
+      shortName: getShortName(team.team_name || "TM"),
+      teamName: team.team_name || "SPL Team",
       city: team.city || "SPL Franchise",
-      captain: team.vice_coach || "TBA",
-      wins: reference.wins,
-      losses: reference.losses,
-      points: reference.points,
-      nrr: reference.nrr,
-      color: reference.color || getFallbackColor(team.primary_color),
+      captain: team.vice_coach || team.captain || "TBA",
+      wins: Number(liveStanding.wins ?? 0),
+      losses: Number(liveStanding.losses ?? 0),
+      points: Number(liveStanding.points ?? 0),
+      nrr: String(liveStanding.nrr ?? "0.000"),
+      color: safeColor,
       logo: getMediaUrl(team.logo),
-      brandIcon: reference.brandIcon,
-      logoColor: reference.logoColor,
+      brandIcon: reference?.brandIcon || null,
+      logoColor: reference?.logoColor || safeColor,
     };
   });
 
