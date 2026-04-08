@@ -131,8 +131,8 @@ export default function FranchiseSection({
               to={franchise.route}
               className="group block h-full text-left"
             >
-              <div className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white text-center shadow-[0_14px_38px_rgba(15,23,42,0.12),0_0_0_1px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#853953] hover:bg-[#853953] hover:shadow-[0_18px_44px_rgba(95,36,57,0.24)]">
-                <div className="pointer-events-none absolute left-1/2 top-[42%] h-[180px] w-[180%] -translate-x-1/2 rounded-[50%] bg-[rgba(15,23,42,0.05)] transition-colors duration-300 group-hover:bg-white/10" />
+              <div className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white text-center shadow-[0_14px_38px_rgba(15,23,42,0.12),0_0_0_1px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#9dd4ff] hover:bg-[#dff1ff] hover:shadow-[0_18px_44px_rgba(96,165,250,0.22)]">
+                <div className="pointer-events-none absolute left-1/2 top-[42%] h-[180px] w-[180%] -translate-x-1/2 rounded-[50%] bg-[rgba(15,23,42,0.05)] transition-colors duration-300 group-hover:bg-[#cbe8ff]" />
 
                 <div className="relative z-10 flex min-h-[150px] items-end justify-center px-6 pt-8">
                   <div className="flex h-[122px] w-[122px] items-center justify-center overflow-hidden p-1 sm:h-[132px] sm:w-[132px]">
@@ -142,17 +142,17 @@ export default function FranchiseSection({
                         alt={`${franchise.name} logo`}
                         loading="lazy"
                         decoding="async"
-                        className="h-full w-full scale-[1.06] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.22)] transition duration-300 group-hover:brightness-0 group-hover:invert"
+                        className="h-full w-full scale-[1.06] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.22)] transition duration-300"
                       />
                     ) : franchise.brandIcon ? (
                       <franchise.brandIcon
                         aria-label={`${franchise.name} logo`}
-                        className="h-full w-full scale-[1.02] drop-shadow-[0_10px_18px_rgba(0,0,0,0.22)] transition-colors duration-300 group-hover:text-white"
+                        className="h-full w-full scale-[1.02] drop-shadow-[0_10px_18px_rgba(0,0,0,0.22)] transition-colors duration-300 group-hover:text-[#0f2742]"
                         style={{ color: franchise.logoColor }}
                       />
                     ) : (
                       <span
-                        className="font-heading text-[2rem] tracking-[0.08em] text-[#0f172a] transition-colors duration-300 group-hover:text-white"
+                        className="font-heading text-[2rem] tracking-[0.08em] text-[#0f172a] transition-colors duration-300 group-hover:text-[#0f2742]"
                       >
                         {franchise.short}
                       </span>
@@ -161,22 +161,22 @@ export default function FranchiseSection({
                 </div>
 
                 <div className="relative z-10 mt-auto flex min-h-[160px] flex-1 flex-col px-5 pb-8 pt-12">
-                  <h3 className="line-clamp-2 font-body text-[1.95rem] font-bold leading-tight tracking-[-0.03em] text-[#0f172a] transition-colors duration-300 group-hover:text-white">
+                  <h3 className="line-clamp-2 font-body text-[1.95rem] font-bold leading-tight tracking-[-0.03em] text-[#0f172a] transition-colors duration-300 group-hover:text-[#0f2742]">
                     {franchise.name}
                   </h3>
-                  <p className="mt-2 text-sm text-slate-500 transition-colors duration-300 group-hover:text-white/80">
+                  <p className="mt-2 text-sm text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
                     {franchise.city}
                   </p>
-                  <p className="mt-1 text-sm text-slate-500 transition-colors duration-300 group-hover:text-white/80">
+                  <p className="mt-1 text-sm text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
                     Owner: {franchise.owner}
                   </p>
 
-                  <div className="mt-5 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-left transition-colors duration-300 group-hover:border-white/20 group-hover:bg-white/10">
+                  <div className="mt-5 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-left transition-colors duration-300 group-hover:border-[#9dcdf0] group-hover:bg-[#edf7ff]">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-condensed text-xs uppercase tracking-[0.2em] text-slate-500 transition-colors duration-300 group-hover:text-white/70">
+                      <p className="font-condensed text-xs uppercase tracking-[0.2em] text-slate-500 transition-colors duration-300 group-hover:text-[#4a6c89]">
                         Owned Teams
                       </p>
-                      <span className="rounded-full border border-[#b88a2a]/30 bg-[#fff7df] px-3 py-1 font-condensed text-xs uppercase tracking-[0.18em] text-[#b88a2a] transition-colors duration-300 group-hover:border-white/30 group-hover:bg-white/10 group-hover:text-white">
+                      <span className="rounded-full border border-[#b88a2a]/30 bg-[#fff7df] px-3 py-1 font-condensed text-xs uppercase tracking-[0.18em] text-[#b88a2a] transition-colors duration-300 group-hover:border-[#9dcdf0] group-hover:bg-white/80 group-hover:text-[#2c618f]">
                         {Math.min(franchise.linkedTeams.length, 3)}/3
                       </span>
                     </div>
@@ -186,13 +186,13 @@ export default function FranchiseSection({
                         franchise.linkedTeams.map((team) => (
                           <span
                             key={team.id}
-                            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors duration-300 group-hover:bg-white/15 group-hover:text-white"
+                            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors duration-300 group-hover:bg-[#d8ecfb] group-hover:text-[#0f2742]"
                           >
                             {team.name}
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-slate-500 transition-colors duration-300 group-hover:text-white/80">
+                        <span className="text-xs text-slate-500 transition-colors duration-300 group-hover:text-[#35516f]">
                           No teams linked yet
                         </span>
                       )}
