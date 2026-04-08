@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getHomeContent } from "../api/homeAPI";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import {
@@ -14,23 +14,32 @@ export default function useHomeContent() {
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const contentRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchHomeContent() {
+    async function fetchHomeContent({ silent = false } = {}) {
       try {
-        setLoading(true);
-        setError("");
+        if (!silent) {
+          setLoading(true);
+        }
 
         const data = await getHomeContent();
 
         if (isMounted) {
-          setContent(data && typeof data === "object" ? data : null);
+          setError("");
+          const nextContent = data && typeof data === "object" ? data : null;
+          contentRef.current = nextContent;
+          setContent(nextContent);
         }
       } catch (err) {
         if (isMounted) {
-          setError(getApiErrorMessage(err, "Unable to fetch home content."));
+          if (!contentRef.current) {
+            setError(getApiErrorMessage(err, "Unable to fetch home content."));
+          } else {
+            setError("");
+          }
         }
       } finally {
         if (isMounted) {
@@ -42,7 +51,7 @@ export default function useHomeContent() {
     fetchHomeContent();
 
     const handleRefresh = () => {
-      fetchHomeContent();
+      fetchHomeContent({ silent: true });
     };
 
     const handleStorage = (event) => {
@@ -56,7 +65,7 @@ export default function useHomeContent() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        fetchHomeContent();
+        fetchHomeContent({ silent: true });
       }
     };
 

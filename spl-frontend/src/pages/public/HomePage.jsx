@@ -36,6 +36,8 @@ export default function HomePage() {
   const announcementItems = liveAnnouncements;
   const topPerformerItems = getArrayOrEmpty(homeContent?.topPerformers);
   const seasonStats = getArrayOrEmpty(homeContent?.seasonStats);
+  const hasHomeTeamData = franchiseItems.length > 0 || teamItems.length > 0;
+  const visibleHomeContentError = hasHomeTeamData ? "" : homeContentError;
   const stats =
     liveHeroStats.length > 0
       ? liveHeroStats
@@ -201,7 +203,7 @@ export default function HomePage() {
             franchises={franchiseItems}
             teams={teamItems}
             loading={homeContentLoading}
-            error={homeContentError}
+            error={visibleHomeContentError}
           />
         </div>
 
