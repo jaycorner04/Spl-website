@@ -84,6 +84,16 @@ export default function AnnouncementPopup({ open, items, onClose }) {
             Latest match updates and key league information for visitors as soon
             as they enter the site.
           </p>
+
+          <div className="mt-4 rounded-2xl border border-[#f0c14b]/30 bg-white/10 px-4 py-3 backdrop-blur-sm">
+            <p className="font-condensed text-[11px] uppercase tracking-[0.22em] text-[#f7d7e3]">
+              Maintenance Notice
+            </p>
+            <p className="mt-1 text-sm leading-6 text-white/90">
+              Website is under maintenance. Some live updates and admin actions
+              may refresh a little slower than usual.
+            </p>
+          </div>
         </div>
 
         <div className="spl-scrollbar flex-1 overflow-y-auto">
