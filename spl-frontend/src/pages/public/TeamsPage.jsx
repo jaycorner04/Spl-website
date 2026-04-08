@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SectionHeader from "../../components/common/SectionHeader";
 import RouteAction from "../../components/common/RouteAction";
 import TeamsGrid from "../../components/team/TeamsGrid";
-import { getStandings } from "../../api/homeAPI";
-import useFranchises from "../../hooks/useFranchises";
-import useTeams from "../../hooks/useTeams";
-import { getApiErrorMessage } from "../../utils/apiErrors";
+import useHomeContent from "../../hooks/useHomeContent";
 import { getMediaUrl } from "../../utils/media";
 import {
   findTeamBrandReference,
@@ -16,41 +13,28 @@ import {
 
 export default function TeamsPage() {
   const [searchParams] = useSearchParams();
-  const { teams, loading, error } = useTeams();
-  const { franchises } = useFranchises();
-  const [standingsData, setStandingsData] = useState({});
+  const {
+    content: homeContent,
+    loading,
+    error,
+  } = useHomeContent();
   const franchiseId = searchParams.get("franchiseId") || "";
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchStandings() {
-      try {
-        const data = await getStandings();
-
-        if (isMounted) {
-          setStandingsData(data && typeof data === "object" ? data : {});
-        }
-      } catch (requestError) {
-        if (isMounted) {
-          console.error(
-            "Teams page standings fetch error:",
-            getApiErrorMessage(
-              requestError,
-              "Unable to load live standings for the teams page."
-            )
-          );
-          setStandingsData({});
-        }
-      }
-    }
-
-    fetchStandings();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const teams = useMemo(
+    () => (Array.isArray(homeContent?.teams) ? homeContent.teams : []),
+    [homeContent]
+  );
+  const franchises = useMemo(
+    () =>
+      Array.isArray(homeContent?.franchises) ? homeContent.franchises : [],
+    [homeContent]
+  );
+  const standingsData = useMemo(
+    () =>
+      homeContent?.standings && typeof homeContent.standings === "object"
+        ? homeContent.standings
+        : {},
+    [homeContent]
+  );
 
   const approvedFranchiseIds = useMemo(
     () =>
