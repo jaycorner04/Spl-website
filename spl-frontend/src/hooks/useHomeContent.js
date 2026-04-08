@@ -6,6 +6,10 @@ import {
   FRANCHISES_UPDATED_STORAGE_KEY,
 } from "../utils/franchiseSync";
 import {
+  HOME_CONTENT_UPDATED_EVENT,
+  HOME_CONTENT_UPDATED_STORAGE_KEY,
+} from "../utils/homeContentSync";
+import {
   TEAMS_UPDATED_EVENT,
   TEAMS_UPDATED_STORAGE_KEY,
 } from "../utils/teamSync";
@@ -57,7 +61,8 @@ export default function useHomeContent() {
     const handleStorage = (event) => {
       if (
         event.key === TEAMS_UPDATED_STORAGE_KEY ||
-        event.key === FRANCHISES_UPDATED_STORAGE_KEY
+        event.key === FRANCHISES_UPDATED_STORAGE_KEY ||
+        event.key === HOME_CONTENT_UPDATED_STORAGE_KEY
       ) {
         fetchHomeContent();
       }
@@ -71,6 +76,7 @@ export default function useHomeContent() {
 
     window.addEventListener(TEAMS_UPDATED_EVENT, handleRefresh);
     window.addEventListener(FRANCHISES_UPDATED_EVENT, handleRefresh);
+    window.addEventListener(HOME_CONTENT_UPDATED_EVENT, handleRefresh);
     window.addEventListener("storage", handleStorage);
     window.addEventListener("focus", handleRefresh);
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -79,6 +85,7 @@ export default function useHomeContent() {
       isMounted = false;
       window.removeEventListener(TEAMS_UPDATED_EVENT, handleRefresh);
       window.removeEventListener(FRANCHISES_UPDATED_EVENT, handleRefresh);
+      window.removeEventListener(HOME_CONTENT_UPDATED_EVENT, handleRefresh);
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("focus", handleRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);

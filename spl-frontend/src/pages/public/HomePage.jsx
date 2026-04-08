@@ -33,6 +33,10 @@ export default function HomePage() {
   const teamItems = getArrayOrEmpty(homeContent?.teams);
   const liveHeroStats = getArrayOrEmpty(homeContent?.heroStats);
   const liveAnnouncements = getArrayOrEmpty(homeContent?.announcements);
+  const maintenanceNotice =
+    homeContent?.maintenanceNotice && typeof homeContent.maintenanceNotice === "object"
+      ? homeContent.maintenanceNotice
+      : null;
   const announcementItems = liveAnnouncements;
   const topPerformerItems = getArrayOrEmpty(homeContent?.topPerformers);
   const seasonStats = getArrayOrEmpty(homeContent?.seasonStats);
@@ -86,6 +90,7 @@ export default function HomePage() {
       <AnnouncementPopup
         open={isAnnouncementPopupOpen && announcementItems.length > 0}
         items={announcementItems}
+        maintenanceNotice={maintenanceNotice}
         onClose={closeAnnouncementPopup}
       />
 

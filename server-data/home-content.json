@@ -1,4 +1,15 @@
 {
+  "maintenanceNotice": {
+    "title": "Website Maintenance",
+    "message": "",
+    "status": "draft",
+    "updatedAt": "",
+    "updatedBy": "",
+    "approvedAt": "",
+    "approvedBy": "",
+    "rejectedAt": "",
+    "rejectedBy": ""
+  },
   "announcements": [
     {
       "label": "Upcoming Match",

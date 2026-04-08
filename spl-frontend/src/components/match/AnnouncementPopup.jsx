@@ -3,7 +3,12 @@ import { X } from "lucide-react";
 import AnnouncementDetailsPanel from "./AnnouncementDetailsPanel";
 import { getAnnouncementItemKey } from "./announcementDetails";
 
-export default function AnnouncementPopup({ open, items, onClose }) {
+export default function AnnouncementPopup({
+  open,
+  items,
+  maintenanceNotice,
+  onClose,
+}) {
   const announcementItems = useMemo(
     () => (Array.isArray(items) ? items : []),
     [items]
@@ -21,6 +26,23 @@ export default function AnnouncementPopup({ open, items, onClose }) {
       ) || null,
     [announcementItems, selectedAnnouncementKey]
   );
+  const visibleMaintenanceNotice = useMemo(() => {
+    if (!maintenanceNotice || typeof maintenanceNotice !== "object") {
+      return null;
+    }
+
+    const title = String(maintenanceNotice.title || "").trim();
+    const message = String(maintenanceNotice.message || "").trim();
+
+    if (!title && !message) {
+      return null;
+    }
+
+    return {
+      title: title || "Website Maintenance",
+      message,
+    };
+  }, [maintenanceNotice]);
 
   useEffect(() => {
     if (!open) {
@@ -85,15 +107,16 @@ export default function AnnouncementPopup({ open, items, onClose }) {
             as they enter the site.
           </p>
 
-          <div className="mt-4 rounded-2xl border border-[#f0c14b]/30 bg-white/10 px-4 py-3 backdrop-blur-sm">
-            <p className="font-condensed text-[11px] uppercase tracking-[0.22em] text-[#f7d7e3]">
-              Maintenance Notice
-            </p>
-            <p className="mt-1 text-sm leading-6 text-white/90">
-              Website is under maintenance. Some live updates and admin actions
-              may refresh a little slower than usual.
-            </p>
-          </div>
+          {visibleMaintenanceNotice ? (
+            <div className="mt-4 rounded-2xl border border-[#f0c14b]/30 bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <p className="font-condensed text-[11px] uppercase tracking-[0.22em] text-[#f7d7e3]">
+                {visibleMaintenanceNotice.title}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-white/90">
+                {visibleMaintenanceNotice.message}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="spl-scrollbar flex-1 overflow-y-auto">

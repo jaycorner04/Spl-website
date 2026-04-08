@@ -17,6 +17,9 @@ const VenuesPage = lazy(() => import("../pages/public/VenuesPage"));
 
 const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
 const AdminAnalytics = lazy(() => import("../pages/admin/AdminAnalytics"));
+const AdminAnnouncementsPage = lazy(() =>
+  import("../pages/admin/AdminAnnouncementsPage")
+);
 const MatchManagement = lazy(() => import("../pages/admin/MatchManagement"));
 const PlayerManagement = lazy(() => import("../pages/admin/PlayerManagement"));
 const FinanceDashboard = lazy(() => import("../pages/admin/FinanceDashboard"));
@@ -86,6 +89,10 @@ export default function AppRouter() {
             }
           >
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route
+              path="/admin/announcements"
+              element={<AdminAnnouncementsPage />}
+            />
             <Route
               path="/admin/franchise"
               element={<Navigate to="/admin/franchises" replace />}

@@ -23,6 +23,7 @@ const ROLE_ALLOWED_PATHS = {
   super_admin: [
     "/admin",
     "/admin/analytics",
+    "/admin/announcements",
     "/admin/franchises",
     "/admin/sponsors",
     "/admin/matches",

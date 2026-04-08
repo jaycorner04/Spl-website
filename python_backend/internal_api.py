@@ -53,6 +53,7 @@ from .services import (
     get_admin_shell_payload,
     get_franchise_dashboard_section,
     get_home_payload,
+    normalize_maintenance_notice,
 )
 
 
@@ -399,6 +400,40 @@ def require_super_admin_access(request: Request, message: str = 'Only the super 
     return require_role_access(request, ['super_admin'], message)
 
 
+def get_admin_maintenance_notice() -> dict[str, Any]:
+    home_content = get_project_data('home') or {}
+    return normalize_maintenance_notice(home_content.get('maintenanceNotice'))
+
+
+def persist_admin_maintenance_notice(
+    current_notice: dict[str, Any],
+    payload: dict[str, Any],
+    actor: dict[str, Any],
+) -> dict[str, Any]:
+    next_notice = normalize_maintenance_notice({**current_notice, **payload})
+    next_status = str(next_notice.get('status') or 'draft').strip().lower()
+
+    if next_status not in {'draft', 'approved', 'rejected'}:
+        api_error(400, 'Maintenance notice status must be Draft, Approved, or Rejected.')
+
+    next_notice['status'] = next_status
+    next_notice['updatedAt'] = utc_now_iso()
+    next_notice['updatedBy'] = actor.get('email') or actor.get('fullName') or ''
+
+    if next_status == 'approved':
+        next_notice['approvedAt'] = utc_now_iso()
+        next_notice['approvedBy'] = actor.get('email') or actor.get('fullName') or ''
+        next_notice['rejectedAt'] = ''
+        next_notice['rejectedBy'] = ''
+    elif next_status == 'rejected':
+        next_notice['rejectedAt'] = utc_now_iso()
+        next_notice['rejectedBy'] = actor.get('email') or actor.get('fullName') or ''
+
+    home_content = get_project_data('home') or {}
+    set_project_data('home', {**home_content, 'maintenanceNotice': next_notice})
+    return next_notice
+
+
 def require_match_operations_access(request: Request) -> dict[str, Any]:
     return require_role_access(request, ['super_admin', 'ops_manager'], 'Only the super admin or ops manager can access match operations.')
 
@@ -533,6 +568,7 @@ def api_index() -> dict[str, Any]:
             {'resource': 'admin-dashboard', 'collection': '/api/admin/dashboard/', 'sections': ['/api/admin/dashboard/stats/', '/api/admin/dashboard/points-table/', '/api/admin/dashboard/season-progress/', '/api/admin/dashboard/live-now/', '/api/admin/dashboard/recent-activity/', '/api/admin/dashboard/top-performers/']},
             {'resource': 'admin-search', 'collection': '/api/admin/search/'},
             {'resource': 'admin-analytics', 'collection': '/api/admin/analytics/'},
+            {'resource': 'admin-announcements', 'routes': ['/api/admin/announcements/maintenance/']},
             {'resource': 'admin-shell', 'collection': '/api/admin/shell/'},
             {'resource': 'audit-logs', 'collection': '/api/admin/audit-logs/'},
             {'resource': 'auth', 'routes': ['/api/auth/register/', '/api/auth/login/', '/api/auth/me/', '/api/auth/forgot-password/', '/api/auth/reset-password/', '/api/auth/logout/']},
@@ -633,6 +669,31 @@ def admin_dashboard_section(section: str, request: Request) -> Any:
 def admin_analytics(request: Request) -> dict[str, Any]:
     require_super_admin_access(request, 'Only the super admin can access admin analytics.')
     return build_admin_analytics_payload()
+
+
+@app.get('/api/admin/announcements/maintenance/')
+def admin_maintenance_notice(request: Request) -> dict[str, Any]:
+    require_super_admin_access(request, 'Only the super admin can manage maintenance announcements.')
+    return get_admin_maintenance_notice()
+
+
+@app.patch('/api/admin/announcements/maintenance/')
+@app.put('/api/admin/announcements/maintenance/')
+async def admin_maintenance_notice_update(request: Request) -> dict[str, Any]:
+    user = require_super_admin_access(request, 'Only the super admin can manage maintenance announcements.')
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        api_error(400, 'Request body must be a JSON object.')
+    current_notice = get_admin_maintenance_notice()
+    saved_notice = persist_admin_maintenance_notice(current_notice, payload, user)
+    append_audit_log_safe(
+        request,
+        user=user,
+        action=f"admin.announcements.maintenance.{request.method.lower()}",
+        resource_name='project_content',
+        detail=saved_notice,
+    )
+    return saved_notice
 
 
 @app.get('/api/admin/shell/')

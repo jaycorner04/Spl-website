@@ -1,6 +1,7 @@
 import axiosInstance from "./axiosConfig";
 import { getFranchises } from "./franchiseAPI";
 import { getTeams } from "./teamsAPI";
+import { notifyHomeContentUpdated } from "../utils/homeContentSync";
 
 const HOME_CONTENT_TIMEOUT_MS = 10000;
 
@@ -108,6 +109,7 @@ export async function getSponsors() {
 
 export async function updateSponsors(payload) {
   const response = await axiosInstance.patch("/api/home/sponsors/", payload);
+  notifyHomeContentUpdated();
   return response.data;
 }
 

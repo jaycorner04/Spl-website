@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import threading
 import time
+from datetime import datetime
 from typing import Any
 
 from .db_layer import get_cache_version, get_project_data, list_collection
@@ -36,6 +37,7 @@ ROLE_ALLOWED_PATHS = {
     "super_admin": [
         "/admin",
         "/admin/analytics",
+        "/admin/announcements",
         "/admin/franchises",
         "/admin/matches",
         "/admin/players",
@@ -74,6 +76,85 @@ def normalize_status(value: Any) -> str:
 def is_approved_status(value: Any) -> bool:
     normalized = normalize_status(value)
     return normalized in {"", "approved"}
+
+
+def normalize_maintenance_notice(notice: Any) -> dict[str, Any]:
+    source = notice if isinstance(notice, dict) else {}
+    return {
+        "title": str(source.get("title") or "").strip(),
+        "message": str(source.get("message") or "").strip(),
+        "status": normalize_status(source.get("status") or "draft") or "draft",
+        "updatedAt": str(source.get("updatedAt") or "").strip(),
+        "updatedBy": str(source.get("updatedBy") or "").strip(),
+        "approvedAt": str(source.get("approvedAt") or "").strip(),
+        "approvedBy": str(source.get("approvedBy") or "").strip(),
+        "rejectedAt": str(source.get("rejectedAt") or "").strip(),
+        "rejectedBy": str(source.get("rejectedBy") or "").strip(),
+    }
+
+
+def format_notice_timestamp(value: Any) -> str:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return ""
+
+    try:
+        normalized = raw_value.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized).strftime("%b %d, %Y · %I:%M %p")
+    except Exception:
+        return raw_value
+
+
+def get_public_maintenance_notice(home: dict[str, Any]) -> dict[str, Any] | None:
+    notice = normalize_maintenance_notice(home.get("maintenanceNotice"))
+    has_visible_copy = bool(notice["message"] or notice["title"])
+
+    if notice["status"] != "approved" or not has_visible_copy:
+        return None
+
+    if not notice["title"]:
+        notice["title"] = "Website Maintenance"
+
+    return notice
+
+
+def build_maintenance_announcement_item(notice: dict[str, Any]) -> dict[str, Any]:
+    title = notice.get("title") or "Website Maintenance"
+    message = str(notice.get("message") or "").strip()
+    approved_at = format_notice_timestamp(notice.get("approvedAt"))
+    updated_at = format_notice_timestamp(notice.get("updatedAt"))
+    approved_by = str(notice.get("approvedBy") or notice.get("updatedBy") or "").strip()
+    meta_parts = []
+
+    if approved_at:
+        meta_parts.append(f"Approved {approved_at}")
+    elif updated_at:
+        meta_parts.append(f"Updated {updated_at}")
+
+    if approved_by:
+        meta_parts.append(f"By {approved_by}")
+
+    return {
+        "label": "Maintenance Notice",
+        "accent": "bg-sky-600 text-white",
+        "title": title,
+        "detail": message if len(message) <= 120 else f"{message[:117].rstrip()}...",
+        "meta": " | ".join(meta_parts) or "Website maintenance notice",
+        "matchDetails": [
+            {"label": "Notice", "value": message or "Maintenance notice is active."},
+            {"label": "Status", "value": "Approved"},
+            *(
+                [{"label": "Approved At", "value": approved_at}]
+                if approved_at
+                else []
+            ),
+            *(
+                [{"label": "Approved By", "value": approved_by}]
+                if approved_by
+                else []
+            ),
+        ],
+    }
 
 
 def format_lakhs(amount: Any, digits: int = 1) -> str:
@@ -394,8 +475,17 @@ def get_home_payload() -> dict[str, Any]:
     public_players = public_entities["players"]
     public_performances = public_entities["performances"]
     public_matches = public_entities["matches"]
+    public_maintenance_notice = get_public_maintenance_notice(home)
+    home_announcements = list(home.get("announcements") or [])
+    if public_maintenance_notice:
+        home_announcements = [
+            build_maintenance_announcement_item(public_maintenance_notice),
+            *home_announcements,
+        ]
     payload = {
         **home,
+        "maintenanceNotice": public_maintenance_notice,
+        "announcements": home_announcements,
         "teams": public_teams,
         "franchises": public_franchises,
         "standings": {
