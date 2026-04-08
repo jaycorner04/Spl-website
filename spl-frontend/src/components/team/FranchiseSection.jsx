@@ -124,7 +124,7 @@ export default function FranchiseSection({
           No franchises found.
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
           {formattedFranchises.map((franchise) => (
             <RouteAction
               key={franchise.id}
