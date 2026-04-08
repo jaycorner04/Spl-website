@@ -4,8 +4,8 @@ import SectionHeader from "../../components/common/SectionHeader";
 import TeamHeroCard from "../../components/team/TeamHeroCard";
 import TeamInfoList from "../../components/team/TeamInfoList";
 import TeamSquadSection from "../../components/team/TeamSquadSection";
+import useHomeContent from "../../hooks/useHomeContent";
 import usePlayers from "../../hooks/usePlayers";
-import useTeams from "../../hooks/useTeams";
 import { getMediaUrl } from "../../utils/media";
 import {
   findTeamBrandReference,
@@ -30,7 +30,15 @@ function getPlayerColor(playerId = 0) {
 
 export default function TeamDetailPage() {
   const { teamId } = useParams();
-  const { teams, loading, error } = useTeams();
+  const {
+    content: homeContent,
+    loading,
+    error,
+  } = useHomeContent();
+  const teams = useMemo(
+    () => (Array.isArray(homeContent?.teams) ? homeContent.teams : []),
+    [homeContent]
+  );
   const playerFilters = useMemo(
     () => ({ teamId, status: "Active" }),
     [teamId]
