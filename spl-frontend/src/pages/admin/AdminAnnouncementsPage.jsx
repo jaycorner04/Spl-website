@@ -169,6 +169,36 @@ export default function AdminAnnouncementsPage() {
     }
   };
 
+  const handleRemoveFromHomepage = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setSuccessMessage("");
+
+      const response = await updateMaintenanceAnnouncement({
+        ...notice,
+        status: "draft",
+      });
+      const nextNotice = normalizeNotice(response);
+
+      setNotice(nextNotice);
+      setDraft(nextNotice);
+      setEditing(false);
+      setSuccessMessage(
+        "Maintenance announcement removed from the homepage. The copy stays saved in admin as a draft."
+      );
+    } catch (requestError) {
+      setError(
+        getApiErrorMessage(
+          requestError,
+          "Unable to remove the maintenance announcement from the homepage."
+        )
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {error ? (
@@ -247,11 +277,35 @@ export default function AdminAnnouncementsPage() {
         <DashboardPanel title={editing ? "Edit Maintenance Notice" : "Announcement Controls"}>
           <div className="space-y-4">
             {!editing ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                Use <span className="font-semibold text-slate-900">Edit Notice</span>{" "}
-                to update the maintenance copy, then approve or reject it for the
-                homepage.
-              </div>
+              <>
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  Use <span className="font-semibold text-slate-900">Edit Notice</span>{" "}
+                  to update the maintenance copy, then approve or reject it for the
+                  homepage.
+                </div>
+
+                {notice.status === "approved" ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+                    <p className="text-sm font-semibold text-amber-900">
+                      Maintenance notice is currently live.
+                    </p>
+                    <p className="mt-1 text-sm text-amber-700">
+                      Use remove when maintenance is over and the homepage should go
+                      back to normal immediately.
+                    </p>
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={handleRemoveFromHomepage}
+                        disabled={saving}
+                        className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70"
+                      >
+                        Remove From Homepage
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <>
                 <div>
