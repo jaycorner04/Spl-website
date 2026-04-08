@@ -37,6 +37,11 @@ export default function HomePage() {
     homeContent?.maintenanceNotice && typeof homeContent.maintenanceNotice === "object"
       ? homeContent.maintenanceNotice
       : null;
+  const isMaintenanceMode = Boolean(
+    maintenanceNotice &&
+      (String(maintenanceNotice.title || "").trim() ||
+        String(maintenanceNotice.message || "").trim())
+  );
   const announcementItems = liveAnnouncements;
   const topPerformerItems = getArrayOrEmpty(homeContent?.topPerformers);
   const seasonStats = getArrayOrEmpty(homeContent?.seasonStats);
@@ -88,12 +93,18 @@ export default function HomePage() {
   return (
     <>
       <AnnouncementPopup
-        open={isAnnouncementPopupOpen && announcementItems.length > 0}
+        open={
+          isMaintenanceMode ||
+          (isAnnouncementPopupOpen && announcementItems.length > 0)
+        }
         items={announcementItems}
         maintenanceNotice={maintenanceNotice}
+        maintenanceMode={isMaintenanceMode}
         onClose={closeAnnouncementPopup}
       />
 
+      {isMaintenanceMode ? null : (
+        <>
       <section className="relative overflow-hidden bg-[#07111f]">
         {shouldRenderHeroVideo ? (
           <div className="absolute inset-0">
@@ -243,6 +254,8 @@ export default function HomePage() {
           error={homeContentError}
         />
       </div>
+        </>
+      )}
     </>
   );
 }
