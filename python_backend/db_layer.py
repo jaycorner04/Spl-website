@@ -1031,13 +1031,18 @@ def _seed_auth_users() -> None:
     with get_connection() as conn:
         cursor = conn.cursor()
         for record in records:
-            existing = cursor.execute(
-                "SELECT TOP 1 id FROM dbo.auth_users WHERE email = ?;",
-                (record["email"],),
-            ).fetchone()
-            target_id = int(existing[0]) if existing else int(record["id"])
-            cursor.execute(
-                """
+            _upsert_auth_seed_record(cursor, record)
+        conn.commit()
+
+
+def _upsert_auth_seed_record(cursor: Any, record: dict[str, Any]) -> None:
+    existing = cursor.execute(
+        "SELECT TOP 1 id FROM dbo.auth_users WHERE email = ?;",
+        (record["email"],),
+    ).fetchone()
+    target_id = int(existing[0]) if existing else int(record["id"])
+    cursor.execute(
+        """
 IF EXISTS (SELECT 1 FROM dbo.auth_users WHERE email = ?)
 BEGIN
   UPDATE dbo.auth_users
@@ -1066,40 +1071,68 @@ BEGIN
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 END;
 """,
-                (
-                    record["email"],
-                    record["fullName"],
-                    record["employeeId"],
-                    record.get("franchiseId"),
-                    record["role"],
-                    record["status"],
-                    record["salt"],
-                    int(record["iterations"]),
-                    int(record["keyLength"]),
-                    record["digest"],
-                    record["passwordHash"],
-                    record.get("avatar"),
-                    record["createdAt"],
-                    record.get("updatedAt"),
-                    record["email"],
-                    target_id,
-                    record["fullName"],
-                    record["email"],
-                    record["employeeId"],
-                    record.get("franchiseId"),
-                    record["role"],
-                    record["status"],
-                    record["salt"],
-                    int(record["iterations"]),
-                    int(record["keyLength"]),
-                    record["digest"],
-                    record["passwordHash"],
-                    record.get("avatar"),
-                    record["createdAt"],
-                    record.get("updatedAt"),
-                ),
-            )
+        (
+            record["email"],
+            record["fullName"],
+            record["employeeId"],
+            record.get("franchiseId"),
+            record["role"],
+            record["status"],
+            record["salt"],
+            int(record["iterations"]),
+            int(record["keyLength"]),
+            record["digest"],
+            record["passwordHash"],
+            record.get("avatar"),
+            record["createdAt"],
+            record.get("updatedAt"),
+            record["email"],
+            target_id,
+            record["fullName"],
+            record["email"],
+            record["employeeId"],
+            record.get("franchiseId"),
+            record["role"],
+            record["status"],
+            record["salt"],
+            int(record["iterations"]),
+            int(record["keyLength"]),
+            record["digest"],
+            record["passwordHash"],
+            record.get("avatar"),
+            record["createdAt"],
+            record.get("updatedAt"),
+        ),
+    )
+
+
+def ensure_demo_auth_account(email: str) -> bool:
+    normalized_email = str(email or "").strip().lower()
+    if normalized_email not in DEMO_AUTH_PASSWORDS:
+        return False
+
+    records = _read_seed_file(AUTH_SEED_FILES["auth_users"])
+    if not isinstance(records, list):
+        return False
+
+    target_record = next(
+        (
+            record
+            for record in records
+            if str(record.get("email") or "").strip().lower() == normalized_email
+        ),
+        None,
+    )
+    if not target_record:
+        return False
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        _upsert_auth_seed_record(cursor, target_record)
         conn.commit()
+
+    _sync_demo_auth_passwords()
+    return True
 
 
 def _seed_password_reset_tokens() -> None:
