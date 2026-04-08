@@ -1,4 +1,6 @@
 import axiosInstance from "./axiosConfig";
+import { getFranchises } from "./franchiseAPI";
+import { getTeams } from "./teamsAPI";
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -10,9 +12,68 @@ function fileToDataUrl(file) {
   });
 }
 
+function getArrayOrNull(value) {
+  return Array.isArray(value) ? value : null;
+}
+
+function shouldHydrateCollection(collection) {
+  return !Array.isArray(collection) || collection.length === 0;
+}
+
+async function getSupplementalCollections() {
+  const [teamsResult, franchisesResult] = await Promise.allSettled([
+    getTeams(),
+    getFranchises(),
+  ]);
+
+  return {
+    teams:
+      teamsResult.status === "fulfilled"
+        ? getArrayOrNull(teamsResult.value)
+        : null,
+    franchises:
+      franchisesResult.status === "fulfilled"
+        ? getArrayOrNull(franchisesResult.value)
+        : null,
+  };
+}
+
 export async function getHomeContent() {
-  const response = await axiosInstance.get("/api/home/");
-  return response.data;
+  let homePayload = {};
+  let homeRequestError = null;
+
+  try {
+    const response = await axiosInstance.get("/api/home/");
+    homePayload =
+      response.data && typeof response.data === "object" ? response.data : {};
+  } catch (error) {
+    homeRequestError = error;
+  }
+
+  const shouldLoadFallbackCollections =
+    shouldHydrateCollection(homePayload.teams) ||
+    shouldHydrateCollection(homePayload.franchises);
+
+  if (shouldLoadFallbackCollections) {
+    const supplementalCollections = await getSupplementalCollections();
+
+    if (Array.isArray(supplementalCollections.teams)) {
+      homePayload.teams = supplementalCollections.teams;
+    }
+
+    if (Array.isArray(supplementalCollections.franchises)) {
+      homePayload.franchises = supplementalCollections.franchises;
+    }
+  }
+
+  const hasCollectionFallbackData =
+    Array.isArray(homePayload.teams) || Array.isArray(homePayload.franchises);
+
+  if (homeRequestError && !hasCollectionFallbackData) {
+    throw homeRequestError;
+  }
+
+  return homePayload;
 }
 
 export async function getAnnouncements() {
