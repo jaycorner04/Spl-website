@@ -2,6 +2,8 @@ import axiosInstance from "./axiosConfig";
 import { getFranchises } from "./franchiseAPI";
 import { getTeams } from "./teamsAPI";
 
+const HOME_CONTENT_TIMEOUT_MS = 10000;
+
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -39,11 +41,14 @@ async function getSupplementalCollections() {
 }
 
 export async function getHomeContent() {
+  const supplementalCollectionsPromise = getSupplementalCollections();
   let homePayload = {};
   let homeRequestError = null;
 
   try {
-    const response = await axiosInstance.get("/api/home/");
+    const response = await axiosInstance.get("/api/home/", {
+      timeout: HOME_CONTENT_TIMEOUT_MS,
+    });
     homePayload =
       response.data && typeof response.data === "object" ? response.data : {};
   } catch (error) {
@@ -55,7 +60,7 @@ export async function getHomeContent() {
     shouldHydrateCollection(homePayload.franchises);
 
   if (shouldLoadFallbackCollections) {
-    const supplementalCollections = await getSupplementalCollections();
+    const supplementalCollections = await supplementalCollectionsPromise;
 
     if (Array.isArray(supplementalCollections.teams)) {
       homePayload.teams = supplementalCollections.teams;
