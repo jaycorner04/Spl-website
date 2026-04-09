@@ -20,22 +20,33 @@ const titleMap = {
 export default function AdminLayout() {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const isFranchiseRoute = location.pathname.startsWith("/franchise");
 
   const title = titleMap[location.pathname] || "ADMIN DASHBOARD";
 
   return (
-    <div className="min-h-screen bg-white">
-      <AdminSidebar
-        mobileOpen={mobileSidebarOpen}
-        onClose={() => setMobileSidebarOpen(false)}
-      />
+    <div className={isFranchiseRoute ? "min-h-screen bg-[#f5f7fb]" : "min-h-screen bg-white"}>
+      {!isFranchiseRoute ? (
+        <AdminSidebar
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        />
+      ) : null}
 
-      <AdminTopbar
-        title={title}
-        onMenuClick={() => setMobileSidebarOpen(true)}
-      />
+      {!isFranchiseRoute ? (
+        <AdminTopbar
+          title={title}
+          onMenuClick={() => setMobileSidebarOpen(true)}
+        />
+      ) : null}
 
-      <main className="min-h-screen bg-white px-4 py-5 md:px-6 lg:ml-[260px]">
+      <main
+        className={
+          isFranchiseRoute
+            ? "min-h-screen"
+            : "min-h-screen bg-white px-4 py-5 md:px-6 lg:ml-[260px]"
+        }
+      >
         <Outlet />
       </main>
     </div>
