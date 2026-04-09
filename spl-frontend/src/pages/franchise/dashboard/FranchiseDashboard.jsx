@@ -1422,14 +1422,18 @@ export default function FranchiseDashboard() {
   const franchiseSidebarItems = [
     {
       id: "overview",
-      label: "Overview",
-      description: "Hero and summary cards",
+      label: isFranchiseAdmin ? "My Franchise" : "Overview",
+      description: isFranchiseAdmin ? "Your franchise details" : "Hero and summary cards",
     },
-    {
-      id: "registry",
-      label: isFranchiseAdmin ? "My Franchise" : "Registry",
-      description: isFranchiseAdmin ? "Your franchise details" : "All franchises",
-    },
+    ...(!isFranchiseAdmin
+      ? [
+          {
+            id: "registry",
+            label: "Registry",
+            description: "All franchises",
+          },
+        ]
+      : []),
     {
       id: "teams",
       label: "Teams & Players",
@@ -1455,11 +1459,15 @@ export default function FranchiseDashboard() {
       label: "Next Match",
       description: "Upcoming fixture",
     },
-    {
-      id: "notices",
-      label: "Notices",
-      description: "League updates",
-    },
+    ...(!isFranchiseAdmin
+      ? [
+          {
+            id: "notices",
+            label: "Notices",
+            description: "League updates",
+          },
+        ]
+      : []),
   ];
 
   const activeSidebarItem =
@@ -1626,21 +1634,23 @@ export default function FranchiseDashboard() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="font-condensed text-xs uppercase tracking-[0.22em] text-slate-500">
-                Franchise Dashboard
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                {activeSidebarItem.label}
-              </h2>
+      <div className="grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm xl:sticky xl:top-6">
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-condensed text-xs uppercase tracking-[0.22em] text-slate-500">
+                  Franchise Dashboard
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                  {activeSidebarItem.label}
+                </h2>
+              </div>
+              <Badge label={isFranchiseAdmin ? "Franchise Admin" : "Super Admin"} color="purple" />
             </div>
-            <Badge label={isFranchiseAdmin ? "Franchise Admin" : "Super Admin"} color="purple" />
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
+          <div className="flex flex-col gap-3">
             {franchiseSidebarItems.map((item) => {
               const isActive = item.id === activeSection;
 
@@ -1650,16 +1660,18 @@ export default function FranchiseDashboard() {
                   type="button"
                   onClick={() => setActiveSection(item.id)}
                   className={
-                    `min-w-[11rem] rounded-2xl border px-4 py-3 text-left transition xl:min-w-0 ` +
+                    "w-full rounded-2xl border px-4 py-4 text-left shadow-[0_1px_0_rgba(15,23,42,0.02)] transition duration-200 " +
                     (isActive
-                      ? "border-purple-300 bg-purple-50 text-purple-800 shadow-sm"
-                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-purple-200 hover:bg-purple-50/70 hover:text-purple-800")
+                      ? "border-purple-300 bg-purple-50 text-purple-900 shadow-sm ring-1 ring-purple-100"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-purple-200 hover:bg-purple-50/70 hover:text-purple-900")
                   }
                 >
-                  <span className="block font-condensed text-sm uppercase tracking-[0.18em]">
+                  <span className="block font-condensed text-sm uppercase tracking-[0.38em]">
                     {item.label}
                   </span>
-                  <span className="mt-1 block text-xs text-inherit/70">{item.description}</span>
+                  <span className="mt-1 block text-xs leading-snug text-inherit/70">
+                    {item.description}
+                  </span>
                 </button>
               );
             })}
