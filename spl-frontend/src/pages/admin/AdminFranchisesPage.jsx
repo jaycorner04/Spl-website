@@ -1489,14 +1489,19 @@ export default function AdminFranchisesPage() {
       ),
     },
     {
-      key: "website",
-      label: "Website",
-      render: (row) => row.website || "-",
+      key: "logoStatus",
+      label: "Logo",
+      render: (row) => (
+        <Badge
+          label={row.hasLogo ? "Available" : "Missing"}
+          color={row.hasLogo ? "green" : "orange"}
+        />
+      ),
     },
     {
-      key: "address",
-      label: "Address",
-      render: (row) => row.address || "-",
+      key: "linkedTeamsLabel",
+      label: "Linked Teams",
+      render: (row) => row.linkedTeamsLabel || "-",
     },
     {
       key: "actions",
