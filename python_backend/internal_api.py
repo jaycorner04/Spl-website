@@ -64,6 +64,10 @@ IMAGE_EXTENSION_MAP = {
     'image/png': '.png',
     'image/webp': '.webp',
 }
+DOWNLOAD_EXTENSION_MAP = {
+    '.apk': 'application/vnd.android.package-archive',
+    '.aab': 'application/octet-stream',
+}
 RATE_LIMIT_RULES = [
     {
         'key': 'auth',
@@ -937,6 +941,13 @@ def item_delete(resource_name: str, identifier: str, request: Request) -> Respon
 def serve_frontend(full_path: str):
     requested_path = (FRONTEND_DIST_DIR / full_path).resolve()
     if str(requested_path).startswith(str(FRONTEND_DIST_DIR.resolve())) and requested_path.is_file():
+        download_media_type = DOWNLOAD_EXTENSION_MAP.get(requested_path.suffix.lower())
+        if download_media_type:
+            return FileResponse(
+                requested_path,
+                media_type=download_media_type,
+                filename=requested_path.name,
+            )
         return FileResponse(requested_path)
     frontend_index = serve_frontend_index()
     if frontend_index is not None:

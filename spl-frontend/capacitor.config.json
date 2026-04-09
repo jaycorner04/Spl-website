@@ -1,0 +1,6 @@
+{
+  "appId": "com.spl.league",
+  "appName": "SPL League",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

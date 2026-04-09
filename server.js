@@ -297,6 +297,8 @@ function canServeFrontend() {
 function getStaticMimeType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
   const mimeTypes = {
+    ".aab": "application/octet-stream",
+    ".apk": "application/vnd.android.package-archive",
     ".css": "text/css; charset=utf-8",
     ".gif": "image/gif",
     ".htm": "text/html; charset=utf-8",
