@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LiveMatchBanner from "../../components/match/LiveMatchBanner";
 import AnnouncementCardSection from "../../components/match/AnnouncementCardSection";
 import AnnouncementPopup from "../../components/match/AnnouncementPopup";
@@ -10,6 +11,7 @@ import LatestNewsSection from "../../components/common/LatestNewsSection";
 import SponsorSection from "../../components/common/SponsorSection";
 import SeasonStatsBar from "../../components/dashboard/SeasonStatsBar";
 import useHomeContent from "../../hooks/useHomeContent";
+import heroPosterAsset from "../../assets/hero.png";
 import heroVideoAsset from "../../assets/videos/hero-video-optimized.mp4";
 
 function getArrayOrEmpty(value) {
@@ -18,6 +20,11 @@ function getArrayOrEmpty(value) {
 
 export default function HomePage() {
   const [isAnnouncementPopupOpen, setIsAnnouncementPopupOpen] = useState(true);
+  const [heroVideoReady, setHeroVideoReady] = useState(false);
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false);
+  const [showHeroVideoPlayButton, setShowHeroVideoPlayButton] = useState(false);
+  const heroVideoRef = useRef(null);
+  const isNativeApp = Capacitor.isNativePlatform();
   const configuredHeroVideoUrl = String(
     import.meta.env.VITE_HERO_VIDEO_URL || ""
   ).trim();
@@ -79,12 +86,72 @@ export default function HomePage() {
       "(prefers-reduced-motion: reduce)"
     )?.matches;
 
-    return Boolean(
-      heroVideoEnabled &&
-        heroVideoUrl &&
-        !prefersReducedMotion
-    );
+    return Boolean(heroVideoEnabled && heroVideoUrl && !prefersReducedMotion);
   }, [heroVideoEnabled, heroVideoUrl]);
+
+  useEffect(() => {
+    if (!shouldRenderHeroVideo || !isNativeApp || heroVideoFailed) {
+      setShowHeroVideoPlayButton(false);
+      return;
+    }
+
+    const video = heroVideoRef.current;
+    if (!video) {
+      return;
+    }
+
+    let cancelled = false;
+    const showButtonTimer = window.setTimeout(() => {
+      if (!cancelled && video.paused) {
+        setShowHeroVideoPlayButton(true);
+      }
+    }, 1600);
+
+    const startPlayback = async () => {
+      try {
+        video.muted = true;
+        video.defaultMuted = true;
+        video.playsInline = true;
+        const playbackPromise = video.play();
+        if (playbackPromise && typeof playbackPromise.then === "function") {
+          await playbackPromise;
+        }
+        if (!cancelled) {
+          setHeroVideoFailed(false);
+          setShowHeroVideoPlayButton(false);
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setShowHeroVideoPlayButton(true);
+        }
+      }
+    };
+
+    startPlayback();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(showButtonTimer);
+    };
+  }, [heroVideoFailed, isNativeApp, shouldRenderHeroVideo]);
+
+  const handleHeroVideoRetry = useCallback(() => {
+    const video = heroVideoRef.current;
+    if (!video) {
+      return;
+    }
+
+    setHeroVideoFailed(false);
+    setShowHeroVideoPlayButton(false);
+    video
+      .play()
+      .then(() => {
+        setHeroVideoReady(true);
+      })
+      .catch(() => {
+        setShowHeroVideoPlayButton(true);
+      });
+  }, []);
 
   return (
     <>
@@ -102,19 +169,60 @@ export default function HomePage() {
       {isMaintenanceMode ? null : (
         <>
         <section className="relative overflow-hidden bg-[#07111f]">
+        <div className="absolute inset-0 overflow-hidden bg-[#07111f]">
+          <img
+            src={heroPosterAsset}
+            alt="SPL hero poster"
+            className="h-full w-full scale-[1.16] object-cover object-center opacity-100"
+          />
+        </div>
+
         {shouldRenderHeroVideo ? (
           <div className="absolute inset-0 overflow-hidden bg-[#07111f]">
             <video
+              ref={heroVideoRef}
               autoPlay
               muted
               loop
               playsInline
-              preload="metadata"
-              className="h-full w-full scale-[1.42] object-cover object-[50%_46%] brightness-110 contrast-110 saturate-125 sm:scale-[1.08] sm:object-center"
+              preload="auto"
+              poster={heroPosterAsset}
+              controls={isNativeApp && showHeroVideoPlayButton}
+              onLoadedData={() => {
+                setHeroVideoReady(true);
+                setHeroVideoFailed(false);
+              }}
+              onPlaying={() => {
+                setHeroVideoReady(true);
+                setHeroVideoFailed(false);
+                setShowHeroVideoPlayButton(false);
+              }}
+              onPause={() => {
+                if (isNativeApp) {
+                  setShowHeroVideoPlayButton(true);
+                }
+              }}
+              onError={() => {
+                setHeroVideoFailed(true);
+                setShowHeroVideoPlayButton(true);
+              }}
+              className={`h-full w-full scale-[1.42] object-cover object-[50%_46%] brightness-110 contrast-110 saturate-125 transition-opacity duration-500 sm:scale-[1.08] sm:object-center ${
+                heroVideoReady ? "opacity-100" : "opacity-0"
+              }`}
             >
               <source src={heroVideoUrl} type="video/mp4" />
               Your browser does not support the video tag.
             </video>
+
+            {isNativeApp && showHeroVideoPlayButton && !heroVideoFailed ? (
+              <button
+                type="button"
+                onClick={handleHeroVideoRetry}
+                className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/25 bg-black/45 px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-md transition hover:bg-black/60 sm:bottom-8"
+              >
+                Play Intro Video
+              </button>
+            ) : null}
           </div>
         ) : null}
 
