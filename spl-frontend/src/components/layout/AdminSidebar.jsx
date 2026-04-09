@@ -19,8 +19,66 @@ import useAdminShell from "../../hooks/useAdminShell";
 
 const franchiseSidebarSections = [
   {
-    title: "Franchise",
-    items: [{ label: "Dashboard", path: "/franchise", icon: "FR" }],
+    title: "Overview",
+    items: [
+      {
+        label: "Dashboard",
+        path: "/franchise",
+        section: "dashboard",
+        icon: "DB",
+      },
+    ],
+  },
+  {
+    title: "Registration",
+    items: [
+      {
+        label: "Team Registration",
+        path: "/franchise",
+        section: "team-registration",
+        icon: "TR",
+      },
+      {
+        label: "Player Registration",
+        path: "/franchise",
+        section: "player-registration",
+        icon: "PR",
+      },
+    ],
+  },
+  {
+    title: "Squad",
+    items: [
+      {
+        label: "Player Information",
+        path: "/franchise",
+        section: "player-information",
+        icon: "PI",
+      },
+      {
+        label: "Teams",
+        path: "/franchise",
+        section: "teams",
+        icon: "TM",
+      },
+    ],
+  },
+  {
+    title: "Analytics",
+    items: [
+      {
+        label: "Team Performance",
+        path: "/franchise",
+        section: "team-performance",
+        icon: "TP",
+      },
+      {
+        label: "Match Reports",
+        path: "/franchise",
+        section: "match-reports",
+        icon: "MR",
+      },
+    ],
   },
 ];
 
@@ -112,18 +170,28 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
   const avatarUrl = resolvedProfile.avatar
     ? getMediaUrl(resolvedProfile.avatar)
     : "";
+  const currentFranchiseSection =
+    new URLSearchParams(location.search).get("section") || "dashboard";
 
   const sidebarSections = useMemo(
     () =>
-      (sidebarSectionsByRole[storedUser?.role] || []).map((section) => ({
-        ...section,
-        items: section.items
-          .filter((item) => isAuthorizedForPath(item.path, storedUser))
-          .map((item) => ({
-            ...item,
-            badge: badges[item.path] ?? null,
-          })),
-      })),
+      (sidebarSectionsByRole[storedUser?.role] || [])
+        .map((section) => ({
+          ...section,
+          items: section.items
+            .filter((item) =>
+              isAuthorizedForPath(item.permissionPath || item.path, storedUser)
+            )
+            .map((item) => ({
+              ...item,
+              badge: item.badgeKey
+                ? badges[item.badgeKey] ?? null
+                : item.section
+                ? null
+                : badges[item.path] ?? null,
+            })),
+        }))
+        .filter((section) => section.items.length > 0),
     [badges, sidebarSectionsByRole, storedUser]
   );
 
@@ -178,10 +246,27 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
     }
   };
 
-  const isActivePath = (path) =>
-    path === "/admin" || path === "/franchise"
-      ? location.pathname === path
-      : location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const getItemTarget = (item) => {
+    if (!item.section || item.section === "dashboard") {
+      return item.path;
+    }
+
+    return {
+      pathname: item.path,
+      search: `?section=${item.section}`,
+    };
+  };
+
+  const isActiveItem = (item) => {
+    if (item.section && location.pathname === item.path) {
+      return currentFranchiseSection === item.section;
+    }
+
+    return item.path === "/admin" || item.path === "/franchise"
+      ? location.pathname === item.path
+      : location.pathname === item.path ||
+          location.pathname.startsWith(`${item.path}/`);
+  };
 
   return (
     <>
@@ -278,11 +363,11 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
               <div className="space-y-1">
                 {section.items.map((item) => (
                   <RouteAction
-                    key={item.path}
-                    to={item.path}
+                    key={`${item.path}-${item.section || item.label}`}
+                    to={getItemTarget(item)}
                     onClick={onClose}
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                      isActivePath(item.path)
+                      isActiveItem(item)
                         ? "bg-yellow-300/15 text-yellow-200"
                         : "text-blue-100/85 hover:bg-white/10 hover:text-white"
                     }`}
