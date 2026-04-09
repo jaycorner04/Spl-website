@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import FilterBar from "../../../components/dashboard/FilterBar";
+import DashboardPanel from "../../../components/dashboard/DashboardPanel";
 import ManagementModal from "../../../components/dashboard/ManagementModal";
 import Badge from "../../../components/common/Badge";
 import AccessLimitedNotice from "../../../components/common/AccessLimitedNotice";
