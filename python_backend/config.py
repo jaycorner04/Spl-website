@@ -64,6 +64,21 @@ def _parse_csv(value: str | None) -> list[str]:
     return [item.strip() for item in str(value).split(",") if item.strip()]
 
 
+def _merge_origins(*origin_lists: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+
+    for origin_list in origin_lists:
+        for origin in origin_list:
+            normalized = str(origin or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            merged.append(normalized)
+
+    return merged
+
+
 @dataclass(frozen=True)
 class Settings:
     host: str = os.getenv("HOST", "0.0.0.0")
@@ -91,10 +106,18 @@ class Settings:
     auth_secret: str = os.getenv("SPL_AUTH_SECRET", "") or os.getenv("DB_PASSWORD", "") or "spl-local-dev-secret-change-me"
 
     def __post_init__(self) -> None:
+        configured_origins = _parse_csv(os.getenv("CORS_ALLOWED_ORIGINS"))
+        mobile_origins = [
+            "http://localhost",
+            "https://localhost",
+            "capacitor://localhost",
+            "http://127.0.0.1",
+            "https://127.0.0.1",
+        ]
         object.__setattr__(
             self,
             "cors_allowed_origins",
-            _parse_csv(os.getenv("CORS_ALLOWED_ORIGINS")),
+            _merge_origins(configured_origins, mobile_origins),
         )
 
 
