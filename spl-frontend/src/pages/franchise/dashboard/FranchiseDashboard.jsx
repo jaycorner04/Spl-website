@@ -243,7 +243,6 @@ export default function FranchiseDashboard() {
     logoStatus: "all",
     status: "all",
   });
-  const [activeSection, setActiveSection] = useState("overview");
   const [modalType, setModalType] = useState("");
   const [selectedFranchise, setSelectedFranchise] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -1419,193 +1418,6 @@ export default function FranchiseDashboard() {
     />
   );
 
-  const franchiseSidebarItems = [
-    {
-      id: "overview",
-      label: isFranchiseAdmin ? "My Franchise" : "Overview",
-      description: isFranchiseAdmin ? "Your franchise details" : "Hero and summary cards",
-    },
-    ...(!isFranchiseAdmin
-      ? [
-          {
-            id: "registry",
-            label: "Registry",
-            description: "All franchises",
-          },
-        ]
-      : []),
-    {
-      id: "teams",
-      label: "Teams & Players",
-      description: "Roster management",
-    },
-    {
-      id: "performance",
-      label: "Performance",
-      description: "Squad and budget",
-    },
-    {
-      id: "snapshot",
-      label: "Snapshot",
-      description: "Linked teams and franchises",
-    },
-    {
-      id: "notes",
-      label: "Notes",
-      description: "Quick reminders",
-    },
-    {
-      id: "matches",
-      label: "Next Match",
-      description: "Upcoming fixture",
-    },
-    ...(!isFranchiseAdmin
-      ? [
-          {
-            id: "notices",
-            label: "Notices",
-            description: "League updates",
-          },
-        ]
-      : []),
-  ];
-
-  const activeSidebarItem =
-    franchiseSidebarItems.find((item) => item.id === activeSection) ||
-    franchiseSidebarItems[0];
-
-  const franchiseSectionContent = (() => {
-    switch (activeSection) {
-      case "registry":
-        return (
-          <div className="space-y-6">
-            {!isFranchiseAdmin ? (
-              <FilterBar
-                filters={[
-                  {
-                    key: "search",
-                    label: "Search Franchise",
-                    type: "text",
-                    value: filters.search,
-                    placeholder: "Search by name, owner, address, website, or team",
-                  },
-                  {
-                    key: "teamLink",
-                    label: "Team Link",
-                    type: "select",
-                    value: filters.teamLink,
-                    options: [
-                      { label: "All Franchises", value: "all" },
-                      { label: "Linked To Team", value: "linked" },
-                      { label: "Not Linked Yet", value: "unlinked" },
-                    ],
-                  },
-                  {
-                    key: "logoStatus",
-                    label: "Logo Status",
-                    type: "select",
-                    value: filters.logoStatus,
-                    options: [
-                      { label: "All Logos", value: "all" },
-                      { label: "With Logo", value: "with-logo" },
-                      { label: "Without Logo", value: "without-logo" },
-                    ],
-                  },
-                  {
-                    key: "status",
-                    label: "Approval Status",
-                    type: "select",
-                    value: filters.status,
-                    options: [
-                      { label: "All Status", value: "all" },
-                      { label: "Approved", value: "approved" },
-                      { label: "Pending", value: "pending" },
-                      { label: "Rejected", value: "rejected" },
-                    ],
-                  },
-                ]}
-                onChange={handleFilterChange}
-              />
-            ) : null}
-
-            {franchiseRegistryPanel}
-          </div>
-        );
-      case "teams":
-        return franchiseTeamsAndPlayersPanel;
-      case "performance":
-        return franchiseInsightsPanels ? (
-          franchiseInsightsPanels
-        ) : (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-            No performance data is available yet.
-          </div>
-        );
-      case "snapshot":
-        return (
-          <FranchiseSnapshotSection
-            isFranchiseAdmin={isFranchiseAdmin}
-            franchiseTeamRosterRows={franchiseTeamRosterRows}
-            snapshotFranchises={snapshotFranchises}
-          />
-        );
-      case "notes":
-        return (
-          <FranchiseNotesSection
-            isFranchiseAdmin={isFranchiseAdmin}
-            franchiseTeamRosterRows={franchiseTeamRosterRows}
-            scopedFranchiseRows={scopedFranchiseRows}
-            activeManagedFranchise={activeManagedFranchise}
-          />
-        );
-      case "matches":
-        return (
-          <FranchiseNextMatchSection
-            title={franchiseDashboardNextMatch?.title || "Next Match"}
-            loading={franchiseDashboardLoading}
-            match={franchiseDashboardNextMatch?.match}
-          />
-        );
-      case "notices":
-        return (
-          <FranchiseNoticesSection
-            title={franchiseDashboardNotices?.title || "Notices"}
-            loading={franchiseDashboardLoading}
-            items={franchiseDashboardNotices?.items}
-            getNoticeColor={getDashboardNoticeColor}
-          />
-        );
-      case "overview":
-      default:
-        return (
-          <div className="space-y-6">
-            <FranchiseHeroSection
-              title={franchiseDashboardSummary?.heroTitle || "Franchise Dashboard"}
-              loading={franchiseDashboardLoading}
-              context={franchiseDashboardContext}
-            />
-
-            <FranchiseSummaryCards items={displayedSummaryCards} />
-
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <FranchiseNextMatchSection
-                title={franchiseDashboardNextMatch?.title || "Next Match"}
-                loading={franchiseDashboardLoading}
-                match={franchiseDashboardNextMatch?.match}
-              />
-
-              <FranchiseNoticesSection
-                title={franchiseDashboardNotices?.title || "Notices"}
-                loading={franchiseDashboardLoading}
-                items={franchiseDashboardNotices?.items}
-                getNoticeColor={getDashboardNoticeColor}
-              />
-            </section>
-          </div>
-        );
-    }
-  })();
-
   return (
     <div className="space-y-6 bg-white">
       {statusMessage ? (
@@ -1628,81 +1440,378 @@ export default function FranchiseDashboard() {
         </div>
       ) : null}
 
-      {franchiseDashboardError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-          {franchiseDashboardError}
-        </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {displayedSummaryCards.map((item) => (
+          <StatCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            subtext={item.subtext}
+            color={item.color}
+            icon={item.icon}
+          />
+        ))}
+      </section>
+
+      {isFranchiseAdmin ? (
+        <>
+          {franchiseDashboardError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+              {franchiseDashboardError}
+            </div>
+          ) : null}
+
+          <DashboardPanel
+            title={franchiseDashboardSummary?.heroTitle || "Franchise Dashboard"}
+            bodyClassName="space-y-4"
+          >
+            {franchiseDashboardLoading ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                Loading franchise dashboard...
+              </div>
+            ) : franchiseDashboardContext ? (
+              <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+                <div className="rounded-2xl border border-purple-200 bg-purple-50/70 p-5">
+                  <p className="font-condensed text-xs font-bold uppercase tracking-[0.18em] text-purple-700">
+                    Active Franchise
+                  </p>
+                  <h2 className="mt-2 font-heading text-3xl leading-none text-slate-900">
+                    {franchiseDashboardContext.franchiseName || "Assigned Franchise"}
+                  </h2>
+                  <p className="mt-3 text-sm text-slate-600">
+                    Team:{" "}
+                    <span className="font-semibold text-slate-900">
+                      {franchiseDashboardContext.teamName || "Not linked yet"}
+                    </span>
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {[
+                      franchiseDashboardContext.city,
+                      franchiseDashboardContext.venue,
+                    ]
+                      .filter(Boolean)
+                      .join(" | ") || "Venue details will appear here once linked."}
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                      Owner
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                      {franchiseDashboardContext.ownerName || "Not assigned"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                      Website
+                    </p>
+                    <p className="mt-2 break-all text-sm font-semibold text-slate-900">
+                      {franchiseDashboardContext.website || "Not available"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                No franchise dashboard data is available yet.
+              </div>
+            )}
+          </DashboardPanel>
+
+          {franchiseRegistryPanel}
+
+          {franchiseTeamsAndPlayersPanel}
+
+          <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <DashboardPanel
+              title={franchiseDashboardNextMatch?.title || "Next Match"}
+              bodyClassName="space-y-4"
+            >
+              {franchiseDashboardLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                  Loading next match...
+                </div>
+              ) : franchiseDashboardNextMatch?.match ? (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-condensed text-base font-bold uppercase tracking-[0.14em] text-slate-900">
+                        {franchiseDashboardNextMatch.match.fixture}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">
+                        {franchiseDashboardNextMatch.match.venue}
+                      </p>
+                    </div>
+                    <Badge
+                      label={franchiseDashboardNextMatch.match.status || "Upcoming"}
+                      color={
+                        String(
+                          franchiseDashboardNextMatch.match.status || ""
+                        ).toLowerCase() === "live"
+                          ? "red"
+                          : "blue"
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Match Date
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {franchiseDashboardNextMatch.match.date || "TBD"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Match Time
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {franchiseDashboardNextMatch.match.time || "TBD"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+                    {franchiseDashboardNextMatch.match.note}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                  No next match details are available yet.
+                </div>
+              )}
+            </DashboardPanel>
+
+            <DashboardPanel
+              title={franchiseDashboardNotices?.title || "Notices"}
+              bodyClassName="space-y-3"
+            >
+              {franchiseDashboardLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                  Loading notices...
+                </div>
+              ) : Array.isArray(franchiseDashboardNotices?.items) &&
+                franchiseDashboardNotices.items.length > 0 ? (
+                franchiseDashboardNotices.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {item.title}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">{item.date}</p>
+                      </div>
+                      <Badge
+                        label={item.type || "Notice"}
+                        color={getDashboardNoticeColor(item.type)}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                  No notices are available yet.
+                </div>
+              )}
+            </DashboardPanel>
+          </section>
+
+        </>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm xl:sticky xl:top-6">
-          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="font-condensed text-xs uppercase tracking-[0.22em] text-slate-500">
-                  Franchise Dashboard
+      {!isFranchiseAdmin ? (
+        <FilterBar
+          filters={[
+            {
+              key: "search",
+              label: "Search Franchise",
+              type: "text",
+              value: filters.search,
+              placeholder: "Search by name, owner, address, website, or team",
+            },
+            {
+              key: "teamLink",
+              label: "Team Link",
+              type: "select",
+              value: filters.teamLink,
+              options: [
+                { label: "All Franchises", value: "all" },
+                { label: "Linked To Team", value: "linked" },
+                { label: "Not Linked Yet", value: "unlinked" },
+              ],
+            },
+            {
+              key: "logoStatus",
+              label: "Logo Status",
+              type: "select",
+              value: filters.logoStatus,
+              options: [
+                { label: "All Logos", value: "all" },
+                { label: "With Logo", value: "with-logo" },
+                { label: "Without Logo", value: "without-logo" },
+              ],
+            },
+            {
+              key: "status",
+              label: "Approval Status",
+              type: "select",
+              value: filters.status,
+              options: [
+                { label: "All Status", value: "all" },
+                { label: "Approved", value: "approved" },
+                { label: "Pending", value: "pending" },
+                { label: "Rejected", value: "rejected" },
+              ],
+            },
+          ]}
+          onChange={handleFilterChange}
+        />
+      ) : null}
+
+      {!isFranchiseAdmin ? franchiseRegistryPanel : null}
+
+      <div className="flex flex-col gap-6">
+      <div className="order-1">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <DashboardPanel
+          title={isFranchiseAdmin ? "My Teams Snapshot" : "Linked Team Snapshot"}
+          actionLabel={
+            isFranchiseAdmin
+              ? `${franchiseTeamRosterRows.length} teams`
+              : `${snapshotFranchises.length} franchises`
+          }
+        >
+          <div
+            className="max-h-[28rem] space-y-3 overflow-y-auto pr-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {isFranchiseAdmin ? (
+              franchiseTeamRosterRows.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No teams are linked under your franchise yet.
                 </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                  {activeSidebarItem.label}
-                </h2>
-              </div>
-              <Badge label={isFranchiseAdmin ? "Franchise Admin" : "Super Admin"} color="purple" />
-            </div>
+              ) : (
+                franchiseTeamRosterRows.map((team) => (
+                  <div
+                    key={team.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {team.team_name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {[team.city, team.owner, team.captain]
+                            .filter(Boolean)
+                            .join(" • ") || "Team details available in your roster section"}
+                        </p>
+                      </div>
+
+                      <span className="text-sm font-semibold text-purple-700">
+                        {team.roster.length} players
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )
+            ) : (
+              snapshotFranchises.length === 0 ? (
+                <p className="text-sm text-slate-500">No franchises available.</p>
+              ) : (
+                snapshotFranchises.map((franchise) => (
+                  <div
+                    key={franchise.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {franchise.company_name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {franchise.linkedTeamsLabel}
+                        </p>
+                      </div>
+
+                      <span className="text-sm font-semibold text-purple-700">
+                        {franchise.teamCapacityLabel} teams
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )
+            )}
           </div>
+        </DashboardPanel>
 
-          <div className="flex flex-col gap-3">
-            {franchiseSidebarItems.map((item) => {
-              const isActive = item.id === activeSection;
-
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveSection(item.id)}
-                  className={
-                    "w-full rounded-2xl border px-4 py-4 text-left shadow-[0_1px_0_rgba(15,23,42,0.02)] transition duration-200 " +
-                    (isActive
-                      ? "border-purple-300 bg-purple-50 text-purple-900 shadow-sm ring-1 ring-purple-100"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-purple-200 hover:bg-purple-50/70 hover:text-purple-900")
-                  }
-                >
-                  <span className="block font-condensed text-sm uppercase tracking-[0.38em]">
-                    {item.label}
-                  </span>
-                  <span className="mt-1 block text-xs leading-snug text-inherit/70">
-                    {item.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-
-        <main className="min-w-0 space-y-6">
-          <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-condensed text-xs uppercase tracking-[0.22em] text-slate-500">
-                Open Section
+        <DashboardPanel title={isFranchiseAdmin ? "My Franchise Notes" : "Quick Notes"}>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm font-semibold text-blue-600">
+                {isFranchiseAdmin
+                  ? `${franchiseTeamRosterRows.length} team${
+                      franchiseTeamRosterRows.length === 1 ? "" : "s"
+                    } are linked under your franchise`
+                  : `${scopedFranchiseRows.filter((franchise) => franchise.linkedTeamsCount > 0).length} franchises are already linked`}
               </p>
-              <h1 className="mt-1 text-2xl font-semibold text-slate-900">
-                {activeSidebarItem.label}
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">{activeSidebarItem.description}</p>
+              <p className="mt-1 text-sm text-slate-600">
+                {isFranchiseAdmin
+                  ? "This area tracks only the teams and players managed inside your franchise workspace."
+                  : "Linked franchises help the super admin track ownership and branding in one place."}
+              </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveSection("overview")}
-              className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
-            >
-              Back to Overview
-            </button>
-          </div>
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+              <p className="text-sm font-semibold text-yellow-700">
+                {isFranchiseAdmin
+                  ? activeManagedFranchise?.hasLogo
+                    ? "Your franchise logo is already uploaded"
+                    : "Your franchise still needs a logo"
+                  : `${scopedFranchiseRows.filter((franchise) => !franchise.hasLogo).length} franchises still need logos`}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {isFranchiseAdmin
+                  ? "Once approved, your franchise logo can appear on the public franchise section when a team logo is not set."
+                  : "Uploaded franchise logos can appear on the public franchise section when a team logo is not set."}
+              </p>
+            </div>
 
-          {franchiseSectionContent}
-        </main>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-600">
+                {isFranchiseAdmin
+                  ? `You can manage up to 3 teams under ${activeManagedFranchise?.company_name || "your franchise"}`
+                  : "One franchise can own up to 3 teams"}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {isFranchiseAdmin
+                  ? "Your team limit is enforced here, and any teams or players you add will stay under your franchise."
+                  : "The admin teams form now enforces this limit and the linked team details update live here."}
+              </p>
+            </div>
+          </div>
+        </DashboardPanel>
+      </section>
       </div>
-{modalType ? (
+
+      {!isFranchiseAdmin ? (
+        <div className="order-2">{franchiseTeamsAndPlayersPanel}</div>
+      ) : null}
+      {franchiseInsightsPanels ? (
+        <div className="order-3">
+          {franchiseInsightsPanels}
+        </div>
+      ) : null}
+      </div>
+
+      {modalType ? (
         <ManagementModal
           title={
             modalType === "add"
