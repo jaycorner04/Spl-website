@@ -35,6 +35,9 @@ This folder now mirrors the franchise sidebar menu so it is easier to edit in VS
 - `forms/FranchiseIdentityFields.jsx`
   The edit franchise form UI from the popup, including logo, franchise name, owner, website, and address.
 
+- `forms/franchiseFormActions.js`
+  Save, validation, payload-building, and franchise logo upload logic used by the edit franchise popup.
+
 ## Main Page
 
 - `dashboard/FranchiseDashboard.jsx`
