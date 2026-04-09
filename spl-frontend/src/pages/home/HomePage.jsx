@@ -91,7 +91,6 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!shouldRenderHeroVideo || !isNativeApp || heroVideoFailed) {
-      setShowHeroVideoPlayButton(false);
       return;
     }
 
@@ -120,7 +119,7 @@ export default function HomePage() {
           setHeroVideoFailed(false);
           setShowHeroVideoPlayButton(false);
         }
-      } catch (_error) {
+      } catch {
         if (!cancelled) {
           setShowHeroVideoPlayButton(true);
         }
