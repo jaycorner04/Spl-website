@@ -30,6 +30,11 @@ This folder now mirrors the franchise sidebar menu so it is easier to edit in VS
 - `views/analytics/MatchReportsSection.jsx`
   Match reports and notices section.
 
+## Form Files
+
+- `forms/FranchiseIdentityFields.jsx`
+  The edit franchise form UI from the popup, including logo, franchise name, owner, website, and address.
+
 ## Main Page
 
 - `dashboard/FranchiseDashboard.jsx`
