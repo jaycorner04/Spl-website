@@ -366,11 +366,12 @@ export default function AdminFranchisesPage() {
           String(left.team_name || "").localeCompare(String(right.team_name || ""))
         );
       const featuredTeam = linkedTeams[0] || null;
+      const resolvedLogo = franchise.logo || featuredTeam?.logo || "";
 
       return {
         ...franchise,
         formattedId: formatFranchiseId(franchise.id),
-        displayLogo: franchise.logo || featuredTeam?.logo || "",
+        displayLogo: resolvedLogo,
         featuredTeamName: featuredTeam?.team_name || "",
         brandSourceName:
           featuredTeam?.team_name || franchise.company_name || "Unnamed Franchise",
@@ -388,7 +389,7 @@ export default function AdminFranchisesPage() {
           linkedTeams.length > 0
             ? linkedTeams.map((team) => team.team_name).join(", ")
             : "No linked teams yet",
-        hasLogo: Boolean(franchise.logo),
+        hasLogo: Boolean(resolvedLogo),
       };
     });
   }, [franchises, linkedTeamsByFranchiseId]);
