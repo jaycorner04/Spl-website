@@ -14,7 +14,7 @@ Example:
 
 ```env
 VITE_API_BASE_URL=https://your-domain.com/api
-VITE_ENABLE_HERO_VIDEO=false
+VITE_ENABLE_HERO_VIDEO=true
 VITE_HERO_VIDEO_URL=
 ```
 

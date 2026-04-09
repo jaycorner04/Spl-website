@@ -98,6 +98,12 @@ function main() {
     JAVA_HOME: javaHome,
     ANDROID_HOME: androidHome,
     ANDROID_SDK_ROOT: androidHome,
+    // Ship the homepage hero video in Android builds unless a caller
+    // explicitly overrides it at the shell level.
+    VITE_ENABLE_HERO_VIDEO:
+      Object.prototype.hasOwnProperty.call(process.env, "VITE_ENABLE_HERO_VIDEO")
+        ? process.env.VITE_ENABLE_HERO_VIDEO
+        : "true",
     PATH: [
       path.join(javaHome, "bin"),
       path.join(androidHome, "platform-tools"),
