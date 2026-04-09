@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from typing import Any
 
-from .db_layer import get_cache_version, get_project_data, list_collection
+from .db_layer import get_cache_version, get_project_data, list_collection, list_collections
 
 
 TOP_PERFORMER_ACCENTS = [
@@ -53,7 +53,7 @@ ROLE_ALLOWED_PATHS = {
     "finance_admin": ["/admin/finance"],
     "franchise_admin": ["/franchise"],
 }
-HOME_PAYLOAD_CACHE_TTL_SECONDS = 20.0
+HOME_PAYLOAD_CACHE_TTL_SECONDS = 120.0
 _home_payload_cache_lock = threading.Lock()
 _home_payload_cache: dict[str, Any] = {
     "value": None,
@@ -458,11 +458,14 @@ def get_home_payload() -> dict[str, Any]:
             return copy.deepcopy(_home_payload_cache["value"])
 
     home = get_project_data("home") or {}
-    teams = list_collection("teams")
-    franchises = list_collection("franchises")
-    players = list_collection("players")
-    performances = list_collection("performances")
-    matches = list_collection("matches")
+    collections = list_collections(
+        ["teams", "franchises", "players", "performances", "matches"]
+    )
+    teams = collections.get("teams", [])
+    franchises = collections.get("franchises", [])
+    players = collections.get("players", [])
+    performances = collections.get("performances", [])
+    matches = collections.get("matches", [])
     public_entities = build_public_home_entities(
         teams,
         franchises,

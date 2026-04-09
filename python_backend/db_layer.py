@@ -1282,6 +1282,58 @@ def list_collection(resource_name: str) -> list[dict[str, Any]]:
     return _read_through_cache(f"collection:{resource_name}", _load_collection)
 
 
+def list_collections(resource_names: list[str]) -> dict[str, list[dict[str, Any]]]:
+    initialize_database()
+    normalized_names = [
+        str(resource_name)
+        for resource_name in resource_names
+        if str(resource_name) in RESOURCE_CONFIG
+    ]
+    if not normalized_names:
+        return {}
+
+    unique_names = list(dict.fromkeys(normalized_names))
+
+    def _load_collections() -> dict[str, list[dict[str, Any]]]:
+        select_clauses: list[str] = []
+
+        for resource_name in unique_names:
+            config = RESOURCE_CONFIG[resource_name]
+            field_names = ", ".join(
+                _quote_identifier(name)
+                for name in ["id", *config["fields"].keys()]
+            )
+            select_clauses.append(
+                f"""(
+SELECT {field_names}
+FROM dbo.{_quote_identifier(config['table_name'])}
+ORDER BY [id] ASC
+FOR JSON PATH, INCLUDE_NULL_VALUES
+) AS {_quote_identifier(f'{resource_name}_json')}"""
+            )
+
+        row = fetch_one("SELECT\n  " + ",\n  ".join(select_clauses) + ";") or {}
+        collections: dict[str, list[dict[str, Any]]] = {}
+
+        for resource_name in unique_names:
+            raw_rows = json.loads(row.get(f"{resource_name}_json") or "[]")
+            collections[resource_name] = [
+                normalize_resource_record(resource_name, record)
+                for record in raw_rows
+            ]
+
+        return collections
+
+    cached_result = _read_through_cache(
+        f"collections:{'|'.join(unique_names)}",
+        _load_collections,
+    )
+    return {
+        resource_name: list(cached_result.get(resource_name, []))
+        for resource_name in unique_names
+    }
+
+
 def get_item(resource_name: str, record_id: int) -> dict[str, Any] | None:
     initialize_database()
     def _load_item() -> dict[str, Any] | None:
