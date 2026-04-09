@@ -1,5 +1,1 @@
-import AdminFranchisesPage from "../admin/AdminFranchisesPage";
-
-export default function FranchiseDashboard() {
-  return <AdminFranchisesPage />;
-}
+export { default } from "./dashboard/FranchiseDashboard";
