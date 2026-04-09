@@ -4,7 +4,7 @@ import FilterBar from "../../../components/dashboard/FilterBar";
 import ManagementModal from "../../../components/dashboard/ManagementModal";
 import Badge from "../../../components/common/Badge";
 import AccessLimitedNotice from "../../../components/common/AccessLimitedNotice";
-import FranchiseSummaryCards from "../cards/FranchiseSummaryCards";
+import StatCard from "../../../components/dashboard/StatCard";
 import { getFranchiseSummaryCards } from "../cards/getFranchiseSummaryCards";
 import FranchiseHeroSection from "../sections/FranchiseHeroSection";
 import FranchiseInsightsSection from "../sections/FranchiseInsightsSection";
