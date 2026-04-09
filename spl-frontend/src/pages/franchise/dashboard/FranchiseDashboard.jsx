@@ -6,15 +6,20 @@ import ManagementModal from "../../../components/dashboard/ManagementModal";
 import StatCard from "../../../components/dashboard/StatCard";
 import Badge from "../../../components/common/Badge";
 import AccessLimitedNotice from "../../../components/common/AccessLimitedNotice";
+import {
+  franchiseSectionMeta,
+  normalizeFranchiseSection,
+} from "../config/franchiseSections";
 import { getFranchiseSummaryCards } from "../cards/getFranchiseSummaryCards";
-import FranchiseHeroSection from "../sections/FranchiseHeroSection";
-import FranchiseInsightsSection from "../sections/FranchiseInsightsSection";
-import FranchiseNextMatchSection from "../sections/FranchiseNextMatchSection";
 import FranchiseNotesSection from "../sections/FranchiseNotesSection";
-import FranchiseNoticesSection from "../sections/FranchiseNoticesSection";
-import FranchiseRegistrySection from "../sections/FranchiseRegistrySection";
 import FranchiseSnapshotSection from "../sections/FranchiseSnapshotSection";
-import FranchiseTeamsPlayersSection from "../sections/FranchiseTeamsPlayersSection";
+import MatchReportsSection from "../views/analytics/MatchReportsSection";
+import TeamPerformanceSection from "../views/analytics/TeamPerformanceSection";
+import DashboardSection from "../views/overview/DashboardSection";
+import PlayerRegistrationSection from "../views/registration/PlayerRegistrationSection";
+import TeamRegistrationSection from "../views/registration/TeamRegistrationSection";
+import PlayerInformationSection from "../views/squad/PlayerInformationSection";
+import TeamsSection from "../views/squad/TeamsSection";
 import {
   createFranchise,
   deleteFranchise,
@@ -223,37 +228,6 @@ function formatDashboardLakhs(value) {
 
   return `Rs ${formatted}L`;
 }
-
-const franchiseSectionMeta = {
-  dashboard: {
-    title: "Dashboard",
-    description: "Overview of your franchise, live links, and key stats.",
-  },
-  "team-registration": {
-    title: "Team Registration",
-    description: "Create or edit the franchise details and linked teams.",
-  },
-  "player-registration": {
-    title: "Player Registration",
-    description: "Manage the player roster for your active franchise teams.",
-  },
-  "player-information": {
-    title: "Player Information",
-    description: "Review the players assigned under your franchise teams.",
-  },
-  teams: {
-    title: "Teams",
-    description: "Review the teams linked to your franchise.",
-  },
-  "team-performance": {
-    title: "Team Performance",
-    description: "Track squad balance, budget, and performance trends.",
-  },
-  "match-reports": {
-    title: "Match Reports",
-    description: "Check fixtures, notices, and recent franchise updates.",
-  },
-};
 
 export default function FranchiseDashboard() {
   const location = useLocation();
@@ -567,16 +541,6 @@ export default function FranchiseDashboard() {
     franchiseDashboardSquadSummary?.context ||
     franchiseDashboardBudgetTrend?.context ||
     null;
-
-  const franchiseInsightsPanels = isFranchiseAdmin ? (
-    <FranchiseInsightsSection
-      loading={franchiseDashboardLoading}
-      squadSummary={franchiseDashboardSquadSummary}
-      budgetTrend={franchiseDashboardBudgetTrend}
-      getBudgetBarColorClass={getBudgetBarColorClass}
-      formatDashboardLakhs={formatDashboardLakhs}
-    />
-  ) : null;
 
   const snapshotFranchises = useMemo(() => {
     return [...filteredFranchises].sort((left, right) => {
@@ -1425,38 +1389,65 @@ export default function FranchiseDashboard() {
     openViewModal(matchedFranchise);
   }, [franchiseRows, isFranchiseAdmin, loading, scopedFranchiseRows, searchParams]);
 
-  const franchiseRegistryPanel = (
-    <FranchiseRegistrySection
-      isFranchiseAdmin={isFranchiseAdmin}
-      filteredFranchises={filteredFranchises}
-      scopedFranchiseId={scopedFranchiseId}
-      loading={loading}
-      columns={columns}
-      onAdd={openAddModal}
-      onExport={handleExport}
-      onEditOwnFranchise={() => openEditModal(filteredFranchises[0])}
-    />
-  );
+  const teamRegistrationSectionProps = {
+    isFranchiseAdmin,
+    filteredFranchises,
+    scopedFranchiseId,
+    loading,
+    columns,
+    onAdd: openAddModal,
+    onExport: handleExport,
+    onEditOwnFranchise: () => openEditModal(filteredFranchises[0]),
+  };
 
-  const franchiseTeamsAndPlayersPanel = (
-    <FranchiseTeamsPlayersSection
-      isFranchiseAdmin={isFranchiseAdmin}
-      activeManagedFranchise={activeManagedFranchise}
-      franchiseTeamRosterRows={franchiseTeamRosterRows}
-      playingXiLimit={PLAYING_XI_LIMIT}
-      updatingPlayerIds={updatingPlayerIds}
-      onAddTeam={() => openAddTeamModal(activeManagedFranchise)}
-      onSetPlayerSquadRole={handleSetPlayerSquadRole}
-    />
-  );
+  const playerSectionProps = {
+    isFranchiseAdmin,
+    activeManagedFranchise,
+    franchiseTeamRosterRows,
+    playingXiLimit: PLAYING_XI_LIMIT,
+    updatingPlayerIds,
+    onAddTeam: () => openAddTeamModal(activeManagedFranchise),
+    onSetPlayerSquadRole: handleSetPlayerSquadRole,
+  };
 
-  const requestedFranchiseSectionKey = searchParams.get("section") || "dashboard";
-  const activeFranchiseSectionKey = Object.prototype.hasOwnProperty.call(
-    franchiseSectionMeta,
-    requestedFranchiseSectionKey
-  )
-    ? requestedFranchiseSectionKey
-    : "dashboard";
+  const teamsSectionProps = {
+    isFranchiseAdmin,
+    franchiseTeamRosterRows,
+    snapshotFranchises,
+  };
+
+  const teamPerformanceSectionProps = {
+    loading: franchiseDashboardLoading,
+    squadSummary: franchiseDashboardSquadSummary,
+    budgetTrend: franchiseDashboardBudgetTrend,
+    getBudgetBarColorClass,
+    formatDashboardLakhs,
+  };
+
+  const matchReportsSectionProps = {
+    franchiseDashboardNextMatch,
+    franchiseDashboardNotices,
+    franchiseDashboardLoading,
+    getNoticeColor: getDashboardNoticeColor,
+  };
+
+  const dashboardSectionProps = {
+    displayedSummaryCards,
+    franchiseDashboardSummary,
+    franchiseDashboardLoading,
+    franchiseDashboardContext,
+    franchiseDashboardNextMatch,
+    franchiseDashboardNotices,
+    getNoticeColor: getDashboardNoticeColor,
+    isFranchiseAdmin,
+    franchiseTeamRosterRows,
+    scopedFranchiseRows,
+    activeManagedFranchise,
+  };
+
+  const activeFranchiseSectionKey = normalizeFranchiseSection(
+    searchParams.get("section")
+  );
 
   const franchiseSectionTitle =
     franchiseSectionMeta[activeFranchiseSectionKey]?.title || "Dashboard";
@@ -1465,77 +1456,19 @@ export default function FranchiseDashboard() {
 
   const franchiseMainContent =
     activeFranchiseSectionKey === "team-registration" ? (
-      <div className="space-y-6">{franchiseRegistryPanel}</div>
+      <TeamRegistrationSection {...teamRegistrationSectionProps} />
     ) : activeFranchiseSectionKey === "player-registration" ? (
-      <div className="space-y-6">{franchiseTeamsAndPlayersPanel}</div>
+      <PlayerRegistrationSection {...playerSectionProps} />
     ) : activeFranchiseSectionKey === "player-information" ? (
-      <div className="space-y-6">{franchiseTeamsAndPlayersPanel}</div>
+      <PlayerInformationSection {...playerSectionProps} />
     ) : activeFranchiseSectionKey === "teams" ? (
-      <div className="space-y-6">
-        <FranchiseSnapshotSection
-          isFranchiseAdmin={isFranchiseAdmin}
-          franchiseTeamRosterRows={franchiseTeamRosterRows}
-          snapshotFranchises={snapshotFranchises}
-        />
-      </div>
+      <TeamsSection {...teamsSectionProps} />
     ) : activeFranchiseSectionKey === "team-performance" ? (
-      <div className="space-y-6">{franchiseInsightsPanels}</div>
+      <TeamPerformanceSection {...teamPerformanceSectionProps} />
     ) : activeFranchiseSectionKey === "match-reports" ? (
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <FranchiseNextMatchSection
-          title={franchiseDashboardNextMatch?.title || "Next Match"}
-          loading={franchiseDashboardLoading}
-          match={franchiseDashboardNextMatch?.match}
-        />
-        <FranchiseNoticesSection
-          title={franchiseDashboardNotices?.title || "Notices"}
-          loading={franchiseDashboardLoading}
-          items={franchiseDashboardNotices?.items}
-          getNoticeColor={getDashboardNoticeColor}
-        />
-      </section>
+      <MatchReportsSection {...matchReportsSectionProps} />
     ) : (
-      <div className="space-y-6">
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {displayedSummaryCards.map((item) => (
-            <StatCard
-              key={item.label}
-              label={item.label}
-              value={item.value}
-              subtext={item.subtext}
-              color={item.color}
-              icon={item.icon}
-            />
-          ))}
-        </section>
-
-        <FranchiseHeroSection
-          title={franchiseDashboardSummary?.heroTitle || "Franchise Dashboard"}
-          loading={franchiseDashboardLoading}
-          context={franchiseDashboardContext}
-        />
-
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <FranchiseNextMatchSection
-            title={franchiseDashboardNextMatch?.title || "Next Match"}
-            loading={franchiseDashboardLoading}
-            match={franchiseDashboardNextMatch?.match}
-          />
-          <FranchiseNoticesSection
-            title={franchiseDashboardNotices?.title || "Notices"}
-            loading={franchiseDashboardLoading}
-            items={franchiseDashboardNotices?.items}
-            getNoticeColor={getDashboardNoticeColor}
-          />
-        </section>
-
-        <FranchiseNotesSection
-          isFranchiseAdmin={isFranchiseAdmin}
-          franchiseTeamRosterRows={franchiseTeamRosterRows}
-          scopedFranchiseRows={scopedFranchiseRows}
-          activeManagedFranchise={activeManagedFranchise}
-        />
-      </div>
+      <DashboardSection {...dashboardSectionProps} />
     );
 
   return (
@@ -1645,7 +1578,9 @@ export default function FranchiseDashboard() {
         />
       ) : null}
 
-      {!isFranchiseAdmin ? franchiseRegistryPanel : null}
+      {!isFranchiseAdmin ? (
+        <TeamRegistrationSection {...teamRegistrationSectionProps} />
+      ) : null}
 
       <div className={isFranchiseAdmin ? "hidden" : "flex flex-col gap-6"}>
       <div className="order-1">
@@ -1772,11 +1707,8 @@ export default function FranchiseDashboard() {
       </div>
 
       {!isFranchiseAdmin ? (
-        <div className="order-2">{franchiseTeamsAndPlayersPanel}</div>
-      ) : null}
-      {franchiseInsightsPanels ? (
-        <div className="order-3">
-          {franchiseInsightsPanels}
+        <div className="order-2">
+          <PlayerRegistrationSection {...playerSectionProps} />
         </div>
       ) : null}
       </div>

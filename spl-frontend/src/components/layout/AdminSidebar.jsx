@@ -16,71 +16,10 @@ import {
   updateStoredAuthUser,
 } from "../../utils/authStorage";
 import useAdminShell from "../../hooks/useAdminShell";
-
-const franchiseSidebarSections = [
-  {
-    title: "Overview",
-    items: [
-      {
-        label: "Dashboard",
-        path: "/franchise",
-        section: "dashboard",
-        icon: "DB",
-      },
-    ],
-  },
-  {
-    title: "Registration",
-    items: [
-      {
-        label: "Team Registration",
-        path: "/franchise",
-        section: "team-registration",
-        icon: "TR",
-      },
-      {
-        label: "Player Registration",
-        path: "/franchise",
-        section: "player-registration",
-        icon: "PR",
-      },
-    ],
-  },
-  {
-    title: "Squad",
-    items: [
-      {
-        label: "Player Information",
-        path: "/franchise",
-        section: "player-information",
-        icon: "PI",
-      },
-      {
-        label: "Teams",
-        path: "/franchise",
-        section: "teams",
-        icon: "TM",
-      },
-    ],
-  },
-  {
-    title: "Analytics",
-    items: [
-      {
-        label: "Team Performance",
-        path: "/franchise",
-        section: "team-performance",
-        icon: "TP",
-      },
-      {
-        label: "Match Reports",
-        path: "/franchise",
-        section: "match-reports",
-        icon: "MR",
-      },
-    ],
-  },
-];
+import {
+  DEFAULT_FRANCHISE_SECTION,
+  franchiseSidebarSections,
+} from "../../pages/franchise/config/franchiseSections";
 
 const opsManagerSidebarSections = [
   {
@@ -171,7 +110,8 @@ export default function AdminSidebar({ mobileOpen, onClose }) {
     ? getMediaUrl(resolvedProfile.avatar)
     : "";
   const currentFranchiseSection =
-    new URLSearchParams(location.search).get("section") || "dashboard";
+    new URLSearchParams(location.search).get("section") ||
+    DEFAULT_FRANCHISE_SECTION;
 
   const sidebarSections = useMemo(
     () =>
