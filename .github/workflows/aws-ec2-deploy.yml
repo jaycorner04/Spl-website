@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: production-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -360,11 +360,32 @@ jobs:
 
           wait_for_command() {
             local command_id="$1"
+            local pending_attempts=0
             for attempt in $(seq 1 120); do
               STATUS=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo "Pending")
               echo "SSM status: $STATUS"
               if [ "$STATUS" = "Success" ]; then
                 return 0
+              fi
+              if [ "$STATUS" = "Pending" ] || [ "$STATUS" = "Delayed" ]; then
+                pending_attempts=$((pending_attempts + 1))
+                if [ "$pending_attempts" -ge 20 ]; then
+                  echo "SSM command stayed ${STATUS} for too long. Checking target connectivity before retry."
+                  PING_STATUS=$(aws ssm describe-instance-information \
+                    --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+                    --query 'InstanceInformationList[0].PingStatus' \
+                    --output text)
+                  echo "SSM ping status while command is stuck: ${PING_STATUS}"
+                  if [ "$PING_STATUS" != "Online" ]; then
+                    echo "SSM target is not online while command is stuck."
+                    return 2
+                  fi
+                  echo "SSM target is online, but the command is still pending. Retrying deployment command once."
+                  aws ssm cancel-command --command-id "$command_id" || true
+                  return 2
+                fi
+              else
+                pending_attempts=0
               fi
               if [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelling" ]; then
                 STATUS_DETAILS=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query 'StatusDetails' --output text 2>/dev/null || echo "")
@@ -391,7 +412,7 @@ jobs:
           fi
 
           if [ "$RESULT" -eq 2 ]; then
-            echo "SSM command was undeliverable. Rebooting instance and retrying once."
+            echo "SSM command was undeliverable or stuck pending. Rebooting instance and retrying once."
             aws ec2 reboot-instances --instance-ids "$INSTANCE_ID"
             aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
             aws ec2 wait instance-status-ok --instance-ids "$INSTANCE_ID"
