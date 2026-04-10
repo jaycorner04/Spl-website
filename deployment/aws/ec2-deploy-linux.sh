@@ -158,6 +158,23 @@ ensure_python_backend_runtime() {
   python3 -m pip install -r "${APP_ROOT}/python_backend/requirements.txt"
 }
 
+ensure_ssm_agent_watchdog() {
+  if [[ -z "$SYSTEMCTL_BIN" ]]; then
+    return
+  fi
+
+  echo "Hardening Amazon SSM Agent restart policy"
+  mkdir -p /etc/systemd/system/amazon-ssm-agent.service.d
+  cat > /etc/systemd/system/amazon-ssm-agent.service.d/override.conf <<'EOF'
+[Service]
+Restart=always
+RestartSec=10
+EOF
+  "$SYSTEMCTL_BIN" daemon-reload
+  "$SYSTEMCTL_BIN" enable --now amazon-ssm-agent || true
+  "$SYSTEMCTL_BIN" restart amazon-ssm-agent || true
+}
+
 ensure_docker() {
   if command -v docker >/dev/null 2>&1; then
     if [[ -n "$SYSTEMCTL_BIN" ]]; then
@@ -316,6 +333,7 @@ echo "Writing production environment files"
 write_backend_env
 write_frontend_env
 ensure_python_backend_runtime
+ensure_ssm_agent_watchdog
 
 echo "Preparing production database"
 ensure_local_sqlserver

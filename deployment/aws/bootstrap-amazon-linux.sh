@@ -57,6 +57,16 @@ echo "Enabling Amazon SSM Agent, Docker, and Nginx"
 "$SYSTEMCTL_BIN" enable --now docker
 "$SYSTEMCTL_BIN" enable --now nginx
 
+echo "Hardening Amazon SSM Agent restart policy"
+mkdir -p /etc/systemd/system/amazon-ssm-agent.service.d
+cat > /etc/systemd/system/amazon-ssm-agent.service.d/override.conf <<'EOF'
+[Service]
+Restart=always
+RestartSec=10
+EOF
+"$SYSTEMCTL_BIN" daemon-reload
+"$SYSTEMCTL_BIN" restart amazon-ssm-agent || true
+
 echo "Creating deployment directories"
 mkdir -p "$APP_ROOT" "$LOGS_ROOT"
 chown -R ec2-user:ec2-user "$DEPLOYMENT_ROOT"
