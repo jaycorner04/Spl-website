@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import secrets
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from typing import Any
 
@@ -675,6 +676,35 @@ def is_platform_admin(user: dict[str, Any] | None) -> bool:
 def can_access_franchise_dashboard(user: dict[str, Any] | None) -> bool:
     return bool(user and user.get("role") in FRANCHISE_DASHBOARD_ROLES)
 
+
+def parse_reset_token_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return None
+
+        normalized = raw_value.replace("Z", "+00:00")
+        parsed = None
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            for date_format in ("%b %d %Y %I:%M%p", "%b %d %Y %I:%M:%S%p"):
+                try:
+                    parsed = datetime.strptime(raw_value, date_format)
+                    break
+                except ValueError:
+                    continue
+
+        if parsed is None:
+            return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def request_password_reset(email: str) -> dict[str, Any]:
     normalized_email = normalize_email(email)
     if not normalized_email:
@@ -687,7 +717,7 @@ def request_password_reset(email: str) -> dict[str, Any]:
     raw_token = secrets.token_hex(24)
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     next_reset_token_id = get_next_id("password_reset_tokens")
-    expires_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc) + __import__("datetime").timedelta(milliseconds=RESET_TOKEN_TTL_MS)
+    expires_at = datetime.now(timezone.utc) + timedelta(milliseconds=RESET_TOKEN_TTL_MS)
     created_at = utc_now_iso()
 
     with get_connection() as conn:
@@ -718,7 +748,8 @@ def reset_password(payload: dict[str, Any]) -> dict[str, Any]:
         "SELECT TOP 1 id, user_id, expires_at, used_at FROM dbo.password_reset_tokens WHERE token_hash = ? ORDER BY id DESC;",
         (token_hash,),
     )
-    if not reset_token or reset_token.get("used_at") or __import__("datetime").datetime.fromisoformat(str(reset_token["expires_at"]).replace("Z", "+00:00")) <= __import__("datetime").datetime.now(__import__("datetime").timezone.utc):
+    expires_at = parse_reset_token_datetime(reset_token.get("expires_at") if reset_token else None)
+    if not reset_token or reset_token.get("used_at") or not expires_at or expires_at <= datetime.now(timezone.utc):
         raise AuthError("Reset token is invalid or expired.", 400)
 
     user = find_user_by_id(int(reset_token["user_id"]))
