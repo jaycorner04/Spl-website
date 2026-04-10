@@ -1,9 +1,11 @@
 const { spawnSync } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const androidRoot = path.join(projectRoot, "android");
+const publicDownloadsRoot = path.join(projectRoot, "public", "downloads");
 const isWindows = process.platform === "win32";
 const npmCommand = isWindows ? "npm.cmd" : "npm";
 const npxCommand = isWindows ? "npx.cmd" : "npx";
@@ -60,11 +62,53 @@ function run(command, args, options = {}) {
   });
 
   if (typeof result.status === "number" && result.status !== 0) {
-    process.exit(result.status);
+    const error = new Error(
+      `${command} ${args.join(" ")} failed with exit code ${result.status}.`
+    );
+    error.exitCode = result.status;
+    throw error;
   }
 
   if (result.error) {
     throw result.error;
+  }
+}
+
+function withoutPublicDownloads(callback) {
+  if (!fs.existsSync(publicDownloadsRoot)) {
+    callback();
+    return;
+  }
+
+  const stat = fs.statSync(publicDownloadsRoot);
+  if (!stat.isDirectory()) {
+    callback();
+    return;
+  }
+
+  const stashRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "spl-android-public-downloads-")
+  );
+  const stashedDownloadsRoot = path.join(stashRoot, "downloads");
+
+  fs.renameSync(publicDownloadsRoot, stashedDownloadsRoot);
+  process.stdout.write(
+    "[android-build] Temporarily excluding public/downloads from the Android app bundle.\n"
+  );
+
+  try {
+    callback();
+  } finally {
+    if (!fs.existsSync(publicDownloadsRoot) && fs.existsSync(stashedDownloadsRoot)) {
+      fs.mkdirSync(path.dirname(publicDownloadsRoot), { recursive: true });
+      fs.renameSync(stashedDownloadsRoot, publicDownloadsRoot);
+    }
+
+    try {
+      fs.rmSync(stashRoot, { recursive: true, force: true });
+    } catch {
+      // Cleanup failure should not hide the real build result.
+    }
   }
 }
 
@@ -114,8 +158,10 @@ function main() {
 
   writeLocalProperties(androidHome);
 
-  run(npmCommand, ["run", "build:android"], { env });
-  run(npxCommand, ["cap", "sync", "android"], { env });
+  withoutPublicDownloads(() => {
+    run(npmCommand, ["run", "build:android"], { env });
+    run(npxCommand, ["cap", "sync", "android"], { env });
+  });
 
   if (syncOnly) {
     return;
@@ -135,5 +181,5 @@ try {
   main();
 } catch (error) {
   process.stderr.write(`[android-build] ${error.message}\n`);
-  process.exit(1);
+  process.exit(Number.isInteger(error.exitCode) ? error.exitCode : 1);
 }

@@ -12,11 +12,12 @@ import SponsorSection from "../../components/common/SponsorSection";
 import SeasonStatsBar from "../../components/dashboard/SeasonStatsBar";
 import useHomeContent from "../../hooks/useHomeContent";
 import heroPosterAsset from "../../assets/hero.png";
-import heroVideoAsset from "../../assets/videos/hero-video-optimized.mp4";
 
 function getArrayOrEmpty(value) {
   return Array.isArray(value) ? value : [];
 }
+
+const bundledHeroVideoUrl = "/videos/hero-video-optimized.mp4";
 
 export default function HomePage() {
   const [isAnnouncementPopupOpen, setIsAnnouncementPopupOpen] = useState(true);
@@ -28,7 +29,7 @@ export default function HomePage() {
   const configuredHeroVideoUrl = String(
     import.meta.env.VITE_HERO_VIDEO_URL || ""
   ).trim();
-  const heroVideoUrl = configuredHeroVideoUrl || heroVideoAsset;
+  const heroVideoUrl = configuredHeroVideoUrl || bundledHeroVideoUrl;
   const heroVideoEnabled =
     import.meta.env.VITE_ENABLE_HERO_VIDEO !== "false" && heroVideoUrl.length > 0;
   const {
@@ -140,17 +141,22 @@ export default function HomePage() {
       return;
     }
 
-    setHeroVideoFailed(false);
     setShowHeroVideoPlayButton(false);
+    if (heroVideoFailed) {
+      video.load();
+    }
+
     video
       .play()
       .then(() => {
         setHeroVideoReady(true);
+        setHeroVideoFailed(false);
       })
       .catch(() => {
+        setHeroVideoFailed(true);
         setShowHeroVideoPlayButton(true);
       });
-  }, []);
+  }, [heroVideoFailed]);
 
   return (
     <>
@@ -213,13 +219,13 @@ export default function HomePage() {
               Your browser does not support the video tag.
             </video>
 
-            {isNativeApp && showHeroVideoPlayButton && !heroVideoFailed ? (
+            {isNativeApp && (showHeroVideoPlayButton || heroVideoFailed) ? (
               <button
                 type="button"
                 onClick={handleHeroVideoRetry}
                 className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/25 bg-black/45 px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-md transition hover:bg-black/60 sm:bottom-8"
               >
-                Play Intro Video
+                {heroVideoFailed ? "Retry Video" : "Play Intro Video"}
               </button>
             ) : null}
           </div>
