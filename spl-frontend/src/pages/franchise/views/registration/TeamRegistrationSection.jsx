@@ -8,6 +8,7 @@ export default function TeamRegistrationSection({
   columns,
   onAdd,
   onExport,
+  onAddTeam,
   onEditOwnFranchise,
 }) {
   return (
@@ -20,6 +21,7 @@ export default function TeamRegistrationSection({
         columns={columns}
         onAdd={onAdd}
         onExport={onExport}
+        onAddTeam={onAddTeam}
         onEditOwnFranchise={onEditOwnFranchise}
       />
     </div>

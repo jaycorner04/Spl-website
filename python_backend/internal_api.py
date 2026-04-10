@@ -58,6 +58,7 @@ from .services import (
     get_home_payload,
     get_participating_franchises,
     normalize_maintenance_notice,
+    resolve_franchise_context,
 )
 
 
@@ -965,10 +966,13 @@ def collection_get(resource_name: str, request: Request) -> Any:
     records = list_collection(resource_name)
     if resource_name == 'franchises':
         include_all = str(request.query_params.get('includeAll') or request.query_params.get('include_all') or '').strip().lower() in {'1', 'true', 'yes', 'all'}
+        user = get_user_from_authorization_header(request.headers.get('Authorization'))
         if include_all:
-            user = get_user_from_authorization_header(request.headers.get('Authorization'))
             if not user or user.get('role') != 'super_admin':
                 api_error(403, 'Only the super admin can include inactive franchise records.')
+        elif user and user.get('role') == 'franchise_admin':
+            resolved = resolve_franchise_context(user, dict(request.query_params))
+            records = [resolved['franchise']] if resolved.get('franchise') else []
         else:
             records = get_participating_franchises(records, list_collection('teams'))
     return apply_list_filters(resource_name, records, dict(request.query_params))

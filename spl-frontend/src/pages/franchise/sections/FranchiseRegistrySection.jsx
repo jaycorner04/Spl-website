@@ -10,19 +10,15 @@ export default function FranchiseRegistrySection({
   columns,
   onAdd,
   onExport,
+  onAddTeam,
   onEditOwnFranchise,
 }) {
+  const managedFranchise = isFranchiseAdmin ? filteredFranchises[0] : null;
+  const canAddTeam = Boolean(managedFranchise && managedFranchise.slotsLeft > 0);
+
   return (
     <DashboardPanel
       title={isFranchiseAdmin ? "My Franchise" : "Franchise Registry"}
-      actionLabel={
-        isFranchiseAdmin
-          ? filteredFranchises[0]
-            ? "Edit My Franchise"
-            : undefined
-          : undefined
-      }
-      onAction={isFranchiseAdmin && filteredFranchises[0] ? onEditOwnFranchise : undefined}
       bodyClassName="space-y-4"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
@@ -30,7 +26,26 @@ export default function FranchiseRegistrySection({
           Total results: <span className="font-semibold text-slate-900">{filteredFranchises.length}</span>
         </div>
 
-        {!isFranchiseAdmin ? (
+        {isFranchiseAdmin && managedFranchise ? (
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={onAddTeam}
+              disabled={!canAddTeam}
+              className="rounded-xl bg-purple-100 px-4 py-2.5 font-condensed text-sm font-bold uppercase tracking-[0.14em] text-purple-700 transition hover:bg-purple-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              {canAddTeam ? "+ Add Team" : "3 Teams Full"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onEditOwnFranchise}
+              className="rounded-xl bg-yellow-100 px-4 py-2.5 font-condensed text-sm font-bold uppercase tracking-[0.14em] text-yellow-700 transition hover:bg-yellow-200"
+            >
+              Edit Franchise
+            </button>
+          </div>
+        ) : !isFranchiseAdmin ? (
           <div className="flex flex-wrap gap-3">
             <button
               type="button"

@@ -1252,6 +1252,7 @@ export default function FranchiseDashboard() {
     columns,
     onAdd: openAddModal,
     onExport: handleExport,
+    onAddTeam: () => openAddTeamModal(activeManagedFranchise),
     onEditOwnFranchise: () => openEditModal(filteredFranchises[0]),
   };
 
