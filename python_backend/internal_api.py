@@ -54,6 +54,7 @@ from .services import (
     get_admin_shell_payload,
     get_franchise_dashboard_section,
     get_home_payload,
+    get_participating_franchises,
     normalize_maintenance_notice,
 )
 
@@ -875,6 +876,14 @@ def collection_get(resource_name: str, request: Request) -> Any:
         api_error(404, 'API resource not found.')
     require_resource_read_access(resource_name, request)
     records = list_collection(resource_name)
+    if resource_name == 'franchises':
+        include_all = str(request.query_params.get('includeAll') or request.query_params.get('include_all') or '').strip().lower() in {'1', 'true', 'yes', 'all'}
+        if include_all:
+            user = get_user_from_authorization_header(request.headers.get('Authorization'))
+            if not user or user.get('role') != 'super_admin':
+                api_error(403, 'Only the super admin can include inactive franchise records.')
+        else:
+            records = get_participating_franchises(records, list_collection('teams'))
     return apply_list_filters(resource_name, records, dict(request.query_params))
 
 

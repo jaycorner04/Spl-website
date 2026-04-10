@@ -308,6 +308,29 @@ def build_home_hero_stats(
     ]
 
 
+def get_participating_franchises(
+    franchises: list[dict[str, Any]],
+    teams: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    approved_franchises = [
+        franchise for franchise in franchises if is_approved_status(franchise.get("status"))
+    ]
+    linked_team_franchise_ids = {
+        str(int(safe_number(team.get("franchise_id"))))
+        for team in teams
+        if int(safe_number(team.get("franchise_id"))) > 0
+    }
+
+    if not linked_team_franchise_ids:
+        return approved_franchises
+
+    return [
+        franchise
+        for franchise in approved_franchises
+        if str(int(safe_number(franchise.get("id")))) in linked_team_franchise_ids
+    ]
+
+
 def build_home_season_stats(
     public_matches: list[dict[str, Any]],
     public_players: list[dict[str, Any]],
@@ -367,16 +390,10 @@ def build_public_home_entities(
         if not str(team.get("franchise_id") or "").strip()
         or str(team.get("franchise_id")) in approved_franchise_ids
     ]
-    public_team_franchise_ids = {
-        str(int(safe_number(team.get("franchise_id"))))
-        for team in public_teams
-        if int(safe_number(team.get("franchise_id"))) > 0
-    }
-    participating_franchises = [
-        franchise
-        for franchise in public_franchises
-        if str(int(safe_number(franchise.get("id")))) in public_team_franchise_ids
-    ]
+    participating_franchises = get_participating_franchises(
+        public_franchises,
+        public_teams,
+    )
     public_team_ids = {
         int(safe_number(team.get("id")))
         for team in public_teams
@@ -619,10 +636,11 @@ def build_admin_dashboard_payload() -> dict[str, Any]:
         )
     completed_matches = [match for match in matches if normalize_status(match.get("status")) == "completed"]
     active_teams = [team for team in teams if normalize_status(team.get("status")) == "active"]
+    participating_franchises = get_participating_franchises(franchises, teams)
     total_budget_capacity = max(len(teams), 1) * 1200000
     total_salary = sum(safe_number(player.get("salary")) for player in players)
     franchise_overview = []
-    for franchise in sorted(franchises, key=lambda item: str(item.get("company_name") or "")):
+    for franchise in sorted(participating_franchises, key=lambda item: str(item.get("company_name") or "")):
         linked_teams = sorted([team for team in teams if int(safe_number(team.get("franchise_id"))) == int(safe_number(franchise.get("id")))], key=lambda item: str(item.get("team_name") or ""))
         featured_team = linked_teams[0] if linked_teams else None
         linked_names = ", ".join(team.get("team_name") or "" for team in linked_teams if team.get("team_name")) or "No linked teams yet"
@@ -676,7 +694,7 @@ def build_admin_dashboard_payload() -> dict[str, Any]:
             {"label": "Fixtures", "value": str(len(matches)), "subtext": f"{len(completed_matches)} completed and {len(matches) - len(completed_matches)} upcoming/live", "icon": "Fx", "color": "purple"},
             {"label": "Pending Approvals", "value": str(sum(1 for approval in approvals if normalize_status(approval.get('status')) in {'pending', 'escalated'})), "subtext": "Requests waiting on super admin review", "icon": "Ap", "color": "orange"},
             {"label": "Finance Entries", "value": str(len(invoices)), "subtext": "Invoices tracked in the finance dashboard", "icon": "Fn", "color": "gold"},
-            {"label": "Total Franchises", "value": str(len(franchises)), "subtext": "Managed via the franchise registry", "icon": "Fr", "color": "purple"},
+            {"label": "Total Franchises", "value": str(len(participating_franchises)), "subtext": "Participating franchises linked to active teams", "icon": "Fr", "color": "purple"},
         ],
         "pointsTableRows": points_table_rows,
         "seasonProgress": [
@@ -723,6 +741,7 @@ def get_admin_shell_payload(user: dict[str, Any]) -> dict[str, Any]:
     live_match = get_project_data("live-match") or {}
     scoped_teams = teams
     scoped_players = players
+    participating_franchises = get_participating_franchises(franchises, teams)
     scoped_approvals = approvals
     scoped_invoices = invoices
     scoped_auctions = auctions
@@ -742,7 +761,7 @@ def get_admin_shell_payload(user: dict[str, Any]) -> dict[str, Any]:
         "/franchise": str(len(scoped_teams)) if user.get("role") == "franchise_admin" else None,
         "/admin/matches": str(len(matches)),
         "/admin/players": str(len(scoped_players)),
-        "/admin/franchises": str(len(franchises)),
+        "/admin/franchises": str(len(participating_franchises)),
         "/admin/approvals": str(pending_approvals_count),
         "/admin/live-match": "LIVE" if live_matches_count > 0 else None,
     }
@@ -947,7 +966,16 @@ def get_admin_search_payload(user: dict[str, Any], query_params: dict[str, Any])
             "performances": team_performances,
         }
     else:
-        scoped_resources = {name: list_collection(name) for name in resources if name in allowed_by_role.get(user.get("role"), [])}
+        scoped_resources = {
+            name: list_collection(name)
+            for name in resources
+            if name in allowed_by_role.get(user.get("role"), [])
+        }
+        if "franchises" in scoped_resources:
+            scoped_resources["franchises"] = get_participating_franchises(
+                scoped_resources["franchises"],
+                list_collection("teams"),
+            )
     for resource_name in allowed_by_role.get(user.get("role"), []):
         config = resources[resource_name]
         items = []
