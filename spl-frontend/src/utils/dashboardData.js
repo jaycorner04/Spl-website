@@ -26,4 +26,8 @@ export const adminSidebarSections = [
       { label: "Approvals", path: "/admin/approvals", icon: "✅" },
     ],
   },
+  {
+    title: "Account",
+    items: [{ label: "Change Password", path: "/admin/change-password", icon: "🔒" }],
+  },
 ];

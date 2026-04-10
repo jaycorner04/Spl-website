@@ -19,6 +19,7 @@ from .auth_layer import (
     create_session_token,
     get_user_from_authorization_header,
     is_privileged_user,
+    change_password,
     login_user,
     register_user,
     request_password_reset,
@@ -78,6 +79,7 @@ RATE_LIMIT_RULES = [
             '/api/auth/register', '/api/auth/register/',
             '/api/auth/forgot-password', '/api/auth/forgot-password/',
             '/api/auth/reset-password', '/api/auth/reset-password/',
+            '/api/auth/change-password', '/api/auth/change-password/',
         },
     },
     {
@@ -575,7 +577,7 @@ def api_index() -> dict[str, Any]:
             {'resource': 'admin-announcements', 'routes': ['/api/admin/announcements/maintenance/']},
             {'resource': 'admin-shell', 'collection': '/api/admin/shell/'},
             {'resource': 'audit-logs', 'collection': '/api/admin/audit-logs/'},
-            {'resource': 'auth', 'routes': ['/api/auth/register/', '/api/auth/login/', '/api/auth/me/', '/api/auth/forgot-password/', '/api/auth/reset-password/', '/api/auth/logout/']},
+            {'resource': 'auth', 'routes': ['/api/auth/register/', '/api/auth/login/', '/api/auth/me/', '/api/auth/forgot-password/', '/api/auth/reset-password/', '/api/auth/change-password/', '/api/auth/logout/']},
             {'resource': 'franchise-dashboard', 'routes': ['/api/franchise/summary/', '/api/franchise/next-match/', '/api/franchise/notices/', '/api/franchise/squad-summary/', '/api/franchise/budget-trend/']},
             {'resource': 'uploads', 'routes': ['/api/uploads/player-photo/', '/api/uploads/team-logo/', '/api/uploads/franchise-logo/', '/api/uploads/sponsor-logo/', '/api/uploads/admin-avatar/']},
             {'resource': 'metrics', 'collection': '/api/metrics/'},
@@ -649,6 +651,20 @@ async def auth_reset_password(request: Request) -> dict[str, Any]:
         payload = await request.json()
         response = reset_password(payload)
         append_audit_log_safe(request, action='auth.password_reset_complete', resource_name='auth_users')
+        return response
+    except Exception as error:
+        api_error(get_error_status(error), str(error))
+
+
+@app.post('/api/auth/change-password/')
+async def auth_change_password(request: Request) -> dict[str, Any]:
+    try:
+        user = require_super_admin_access(request, 'Only the super admin can change their password.')
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            api_error(400, 'Request body must be a JSON object.')
+        response = change_password(user, payload)
+        append_audit_log_safe(request, user=user, action='auth.password_change', resource_name='auth_users', resource_id=int(user.get('id') or 0))
         return response
     except Exception as error:
         api_error(get_error_status(error), str(error))

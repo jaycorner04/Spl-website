@@ -47,6 +47,11 @@ export async function resetPassword(payload) {
   return response.data;
 }
 
+export async function changePassword(payload) {
+  const response = await axiosInstance.post("/api/auth/change-password/", payload);
+  return response.data;
+}
+
 export async function logoutUser() {
   const response = await axiosInstance.post("/api/auth/logout/");
   return response.data;

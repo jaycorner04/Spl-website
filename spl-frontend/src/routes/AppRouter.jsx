@@ -20,6 +20,9 @@ const AdminAnalytics = lazy(() => import("../pages/admin/AdminAnalytics"));
 const AdminAnnouncementsPage = lazy(() =>
   import("../pages/admin/AdminAnnouncementsPage")
 );
+const ChangePasswordPage = lazy(() =>
+  import("../pages/admin/ChangePasswordPage")
+);
 const MatchManagement = lazy(() => import("../pages/admin/MatchManagement"));
 const PlayerManagement = lazy(() => import("../pages/admin/PlayerManagement"));
 const FinanceDashboard = lazy(() => import("../pages/admin/FinanceDashboard"));
@@ -92,6 +95,10 @@ export default function AppRouter() {
             <Route
               path="/admin/announcements"
               element={<AdminAnnouncementsPage />}
+            />
+            <Route
+              path="/admin/change-password"
+              element={<ChangePasswordPage />}
             />
             <Route
               path="/admin/franchise"

@@ -33,6 +33,7 @@ const ROLE_ALLOWED_PATHS = {
     "/admin/live-match",
     "/admin/finance",
     "/admin/approvals",
+    "/admin/change-password",
     "/franchise",
   ],
   ops_manager: ["/admin/matches", "/admin/live-match"],

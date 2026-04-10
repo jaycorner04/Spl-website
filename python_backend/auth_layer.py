@@ -552,6 +552,66 @@ def reset_password(payload: dict[str, Any]) -> dict[str, Any]:
     return {"message": "Password updated successfully."}
 
 
+def change_password(user: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    current_password = str(payload.get("currentPassword") or payload.get("current_password") or "").strip()
+    new_password = str(payload.get("password") or payload.get("newPassword") or payload.get("new_password") or "")
+
+    if not current_password:
+        raise AuthError("Current password is required.", 400)
+    if not validate_password_strength(new_password):
+        raise AuthError("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.", 400)
+    if current_password == new_password:
+        raise AuthError("New password must be different from the current password.", 400)
+
+    target_user = find_user_by_id(int(user.get("id") or 0)) or find_user_by_email(str(user.get("email") or ""))
+    if not target_user:
+        raise AuthError("Account not found.", 404)
+
+    normalized_email = normalize_email(target_user.get("email"))
+    if not verify_password(current_password, target_user):
+        if DEMO_RECOVERY_PASSWORDS.get(normalized_email) == current_password and ensure_demo_auth_account(normalized_email):
+            target_user = find_user_by_email(normalized_email) or target_user
+
+    if not verify_password(current_password, target_user):
+        raise AuthError("Current password is incorrect.", 401)
+
+    password_data = hash_password(new_password)
+    updated_at = utc_now_iso()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM dbo.password_reset_tokens WHERE user_id = ?;",
+            (int(target_user["id"]),),
+        )
+        cursor.execute(
+            "UPDATE dbo.auth_users SET salt = ?, iterations = ?, key_length = ?, digest = ?, password_hash = ?, updated_at = ? WHERE id = ?;",
+            (
+                password_data["salt"],
+                password_data["iterations"],
+                password_data["keyLength"],
+                password_data["digest"],
+                password_data["passwordHash"],
+                updated_at,
+                int(target_user["id"]),
+            ),
+        )
+        conn.commit()
+
+    refreshed_user = find_user_by_id(int(target_user["id"])) or {
+        **target_user,
+        "salt": password_data["salt"],
+        "iterations": password_data["iterations"],
+        "keyLength": password_data["keyLength"],
+        "digest": password_data["digest"],
+        "passwordHash": password_data["passwordHash"],
+        "updatedAt": updated_at,
+    }
+    return {
+        "message": "Password updated successfully.",
+        "user": sanitize_auth_user(refreshed_user),
+    }
+
+
 def update_user_avatar(user_id: int, avatar: str) -> dict[str, Any] | None:
     updated_at = utc_now_iso()
     with get_connection() as conn:
