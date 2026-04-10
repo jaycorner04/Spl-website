@@ -45,7 +45,15 @@ function getApprovalIcon(icon) {
   }
 }
 
-function ApprovalStatCard({ label, value, subtext, color, icon }) {
+function ApprovalStatCard({
+  label,
+  value,
+  subtext,
+  color,
+  icon,
+  active = false,
+  onClick,
+}) {
   const topBorderMap = {
     gold: "before:bg-yellow-500",
     red: "before:bg-red-500",
@@ -65,8 +73,15 @@ function ApprovalStatCard({ label, value, subtext, color, icon }) {
   };
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_14px_36px_rgba(15,23,42,0.10)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] ${topBorderMap[color]}`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative w-full overflow-hidden rounded-2xl border bg-white p-5 text-left shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition duration-200 before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] hover:-translate-y-1 hover:shadow-[0_14px_36px_rgba(15,23,42,0.10)] focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+        active
+          ? "border-slate-300 ring-2 ring-slate-300 ring-offset-2"
+          : "border-slate-200"
+      } ${topBorderMap[color]}`}
+      aria-label={`Show ${label} details`}
     >
       <p className="font-condensed text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
         {label}
@@ -78,11 +93,14 @@ function ApprovalStatCard({ label, value, subtext, color, icon }) {
             {value}
           </h3>
           <p className="mt-2 text-xs text-slate-500">{subtext}</p>
+          <p className={`mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${valueColorMap[color]}`}>
+            {active ? "Showing details" : "Click for details"}
+          </p>
         </div>
 
         <span className="text-2xl text-slate-400">{getApprovalIcon(icon)}</span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -703,6 +721,7 @@ export default function AdminApprovalsPage() {
     return [
       {
         label: "Pending Approvals",
+        status: "Pending",
         value: String(pending),
         subtext: "Need admin action",
         color: "red",
@@ -710,6 +729,7 @@ export default function AdminApprovalsPage() {
       },
       {
         label: "Approved",
+        status: "Approved",
         value: String(approved),
         subtext: "Synced to the backend",
         color: "green",
@@ -717,6 +737,7 @@ export default function AdminApprovalsPage() {
       },
       {
         label: "Rejected",
+        status: "Rejected",
         value: String(rejected),
         subtext: "Needs requester follow-up",
         color: "orange",
@@ -724,6 +745,7 @@ export default function AdminApprovalsPage() {
       },
       {
         label: "Escalated",
+        status: "Escalated",
         value: String(escalated),
         subtext: "High-priority review queue",
         color: "purple",
@@ -773,6 +795,30 @@ export default function AdminApprovalsPage() {
       status: "all",
       priority: "all",
     }));
+
+    window.requestAnimationFrame(() => {
+      approvalsListRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
+  const handleSummaryOpen = (status) => {
+    setActiveSection("all");
+    setListMode("all");
+    setFilters({
+      search: "",
+      status,
+      priority: "all",
+    });
+
+    const matchingApprovals = approvalsWithSection.filter(
+      (item) => item.status === status
+    );
+    setSelectedApproval(matchingApprovals.length === 1 ? matchingApprovals[0] : null);
+    setSelectedApprovalTeamId(null);
+    setShowSelectedTeamPlayers(false);
 
     window.requestAnimationFrame(() => {
       approvalsListRef.current?.scrollIntoView({
@@ -919,6 +965,8 @@ export default function AdminApprovalsPage() {
             subtext={item.subtext}
             color={item.color}
             icon={item.icon}
+            active={filters.status === item.status}
+            onClick={() => handleSummaryOpen(item.status)}
           />
         ))}
       </section>
