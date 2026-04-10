@@ -160,6 +160,7 @@ jobs:
 
           wait_for_ssm_online() {
             local phase="$1"
+            local connection_lost_count=0
             for attempt in $(seq 1 40); do
               fetch_ssm_state
               echo "SSM ping status: ${PING_STATUS}"
@@ -167,6 +168,16 @@ jobs:
 
               if [ "$PING_STATUS" = "Online" ]; then
                 return 0
+              fi
+
+              if [ "$PING_STATUS" = "ConnectionLost" ] && [ "$PLATFORM_NAME" != "None" ] && [ -n "$PLATFORM_NAME" ]; then
+                connection_lost_count=$((connection_lost_count + 1))
+                echo "SSM target is registered but ConnectionLost (${connection_lost_count}/3)."
+                if [ "$connection_lost_count" -ge 3 ]; then
+                  return 2
+                fi
+              else
+                connection_lost_count=0
               fi
 
               echo "SSM is not online yet during ${phase}. Waiting 15 seconds before retry ${attempt}/40..."
@@ -191,6 +202,8 @@ jobs:
           if wait_for_ssm_online "initial validation"; then
             echo "SSM target is online."
             exit 0
+          elif [ $? -eq 2 ]; then
+            echo "SSM target stayed ConnectionLost during initial validation."
           fi
 
           if [ "$PING_STATUS" = "ConnectionLost" ] && [ "$PLATFORM_NAME" != "None" ] && [ -n "$PLATFORM_NAME" ]; then
@@ -361,6 +374,7 @@ jobs:
           wait_for_command() {
             local command_id="$1"
             local pending_attempts=0
+            local connection_lost_attempts=0
             for attempt in $(seq 1 120); do
               STATUS=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo "Pending")
               echo "SSM status: $STATUS"
@@ -386,6 +400,23 @@ jobs:
                 fi
               else
                 pending_attempts=0
+              fi
+              if [ "$STATUS" = "Pending" ] || [ "$STATUS" = "InProgress" ] || [ "$STATUS" = "Delayed" ]; then
+                PING_STATUS=$(aws ssm describe-instance-information \
+                  --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+                  --query 'InstanceInformationList[0].PingStatus' \
+                  --output text 2>/dev/null || echo "None")
+                echo "SSM ping status while waiting for command: ${PING_STATUS}"
+                if [ "$PING_STATUS" = "ConnectionLost" ]; then
+                  connection_lost_attempts=$((connection_lost_attempts + 1))
+                  if [ "$connection_lost_attempts" -ge 3 ]; then
+                    echo "SSM target stayed ConnectionLost while command was waiting."
+                    aws ssm cancel-command --command-id "$command_id" || true
+                    return 2
+                  fi
+                else
+                  connection_lost_attempts=0
+                fi
               fi
               if [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelling" ]; then
                 STATUS_DETAILS=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query 'StatusDetails' --output text 2>/dev/null || echo "")
