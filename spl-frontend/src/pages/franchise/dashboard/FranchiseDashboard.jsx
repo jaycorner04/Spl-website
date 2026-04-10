@@ -376,19 +376,93 @@ export default function FranchiseDashboard() {
     });
   }, [franchises, linkedTeamsByFranchiseId]);
 
+  const franchiseDashboardContext = useMemo(
+    () =>
+      franchiseDashboardSummary?.context ||
+      franchiseDashboardNextMatch?.context ||
+      franchiseDashboardNotices?.context ||
+      franchiseDashboardSquadSummary?.context ||
+      franchiseDashboardBudgetTrend?.context ||
+      null,
+    [
+      franchiseDashboardBudgetTrend?.context,
+      franchiseDashboardNextMatch?.context,
+      franchiseDashboardNotices?.context,
+      franchiseDashboardSquadSummary?.context,
+      franchiseDashboardSummary?.context,
+    ]
+  );
+
+  const effectiveFranchiseId = useMemo(() => {
+    if (!isFranchiseAdmin) {
+      return "";
+    }
+
+    const directFranchiseId = String(authUser?.franchiseId || "").trim();
+    if (directFranchiseId) {
+      return directFranchiseId;
+    }
+
+    const contextFranchiseId = String(
+      franchiseDashboardContext?.franchiseId || ""
+    ).trim();
+    if (contextFranchiseId) {
+      return contextFranchiseId;
+    }
+
+    const contextCandidates = [
+      franchiseDashboardContext?.franchiseName,
+      franchiseDashboardContext?.ownerName,
+      authUser?.fullName,
+      String(authUser?.email || "").split("@")[0],
+    ]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!contextCandidates.length) {
+      return "";
+    }
+
+    const matchedFranchise = franchiseRows.find((franchise) => {
+      const searchableValues = [
+        String(franchise.company_name || "").trim().toLowerCase(),
+        String(franchise.owner_name || "").trim().toLowerCase(),
+        String(franchise.website || "").trim().toLowerCase(),
+        String(franchise.featuredTeamName || "").trim().toLowerCase(),
+      ].filter(Boolean);
+
+      return contextCandidates.some((candidate) =>
+        searchableValues.some(
+          (value) => candidate === value || candidate.includes(value) || value.includes(candidate)
+        )
+      );
+    });
+
+    return matchedFranchise ? String(matchedFranchise.id) : "";
+  }, [
+    authUser?.email,
+    authUser?.franchiseId,
+    authUser?.fullName,
+    franchiseDashboardContext?.franchiseId,
+    franchiseDashboardContext?.franchiseName,
+    franchiseDashboardContext?.ownerName,
+    franchiseRows,
+    isFranchiseAdmin,
+  ]);
+
   const scopedFranchiseRows = useMemo(() => {
     if (!isFranchiseAdmin) {
       return franchiseRows;
     }
 
-    if (!scopedFranchiseId) {
+    if (!effectiveFranchiseId) {
       return [];
     }
 
     return franchiseRows.filter(
-      (franchise) => String(franchise.id) === scopedFranchiseId
+      (franchise) => String(franchise.id) === effectiveFranchiseId
     );
-  }, [franchiseRows, isFranchiseAdmin, scopedFranchiseId]);
+  }, [effectiveFranchiseId, franchiseRows, isFranchiseAdmin]);
 
   const filteredFranchises = useMemo(() => {
     return scopedFranchiseRows.filter((franchise) => {
@@ -503,14 +577,6 @@ export default function FranchiseDashboard() {
     franchiseDashboardSummary.cards.length > 0
       ? franchiseDashboardSummary.cards
       : summaryCards;
-
-  const franchiseDashboardContext =
-    franchiseDashboardSummary?.context ||
-    franchiseDashboardNextMatch?.context ||
-    franchiseDashboardNotices?.context ||
-    franchiseDashboardSquadSummary?.context ||
-    franchiseDashboardBudgetTrend?.context ||
-    null;
 
   const snapshotFranchises = useMemo(() => {
     return [...filteredFranchises].sort((left, right) => {
@@ -1182,7 +1248,7 @@ export default function FranchiseDashboard() {
   const teamRegistrationSectionProps = {
     isFranchiseAdmin,
     filteredFranchises,
-    scopedFranchiseId,
+    scopedFranchiseId: effectiveFranchiseId,
     loading,
     columns,
     onAdd: openAddModal,

@@ -819,6 +819,32 @@ def resolve_franchise_context(user: dict[str, Any], query_params: dict[str, Any]
     franchise_id = int(safe_number(query_params.get("franchiseId") or franchise_id_value or 0))
     team_id = int(safe_number(query_params.get("teamId") or 0))
     requested_team_name = str(query_params.get("team") or "").strip().lower()
+
+    if not franchise_id and str(user.get("role") or "").strip().lower() == "franchise_admin":
+        identity_candidates = [
+            str(user.get("fullName") or "").strip().lower(),
+            str(user.get("email") or "").strip().split("@")[0].lower(),
+            str(user.get("franchiseName") or "").strip().lower(),
+        ]
+        identity_candidates = [candidate for candidate in identity_candidates if candidate]
+
+        def _matches_identity(entry: dict[str, Any]) -> bool:
+          searchable_values = [
+              str(entry.get("company_name") or "").strip().lower(),
+              str(entry.get("owner_name") or "").strip().lower(),
+              str(entry.get("website") or "").strip().lower(),
+          ]
+          return any(
+              candidate in value or value in candidate
+              for candidate in identity_candidates
+              for value in searchable_values
+              if candidate and value
+          )
+
+        matched_franchise = next((entry for entry in franchises if _matches_identity(entry)), None)
+        if matched_franchise:
+            franchise_id = int(safe_number(matched_franchise.get("id")))
+
     team = next((entry for entry in teams if int(safe_number(entry.get("id"))) == team_id), None)
     if not team and requested_team_name:
         team = next((entry for entry in teams if str(entry.get("team_name") or "").strip().lower() == requested_team_name), None)
