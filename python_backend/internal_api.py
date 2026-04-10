@@ -60,6 +60,7 @@ from .services import (
 
 
 PLAYER_APPROVAL_META_PREFIX = '__SPL_PLAYER_REG__'
+FRANCHISE_APPROVAL_META_PREFIX = '__SPL_FRANCHISE_REG__'
 IMAGE_EXTENSION_MAP = {
     'image/jpeg': '.jpg',
     'image/jpg': '.jpg',
@@ -279,6 +280,16 @@ def parse_player_registration_approval_notes(notes: str) -> dict[str, Any] | Non
         return None
 
 
+def parse_franchise_registration_approval_notes(notes: str) -> dict[str, Any] | None:
+    first_line = str(notes or '').splitlines()[0] if notes else ''
+    if not first_line.startswith(FRANCHISE_APPROVAL_META_PREFIX):
+        return None
+    try:
+        return json.loads(first_line[len(FRANCHISE_APPROVAL_META_PREFIX):])
+    except Exception:
+        return None
+
+
 def create_player_registration_approval(player_record: dict[str, Any], actor: dict[str, Any] | None) -> dict[str, Any]:
     created_at = str(player_record.get('created_at') or utc_now_iso())
     team_name = str(player_record.get('team_name') or '').strip()
@@ -315,6 +326,49 @@ def sync_player_registration_approval(approval_record: dict[str, Any]) -> None:
 def sync_approval_side_effects(approval_record: dict[str, Any]) -> None:
     sync_franchise_registration_approval(approval_record)
     sync_player_registration_approval(approval_record)
+
+
+def cleanup_rejected_franchise_registration(approval_record: dict[str, Any]) -> dict[str, Any]:
+    if str(approval_record.get('status') or '').lower() != 'rejected':
+        api_error(400, 'Reject this franchise registration before deleting it.')
+
+    if str(approval_record.get('request_type') or '').lower() != 'franchise registration':
+        api_error(400, 'Only rejected franchise registration approvals can delete a franchise.')
+
+    meta = parse_franchise_registration_approval_notes(str(approval_record.get('notes') or ''))
+    try:
+        franchise_id = int((meta or {}).get('franchiseId') or 0)
+        user_id = int((meta or {}).get('userId') or 0)
+    except Exception:
+        franchise_id = 0
+        user_id = 0
+
+    if not meta or franchise_id < 1:
+        api_error(400, 'This approval does not include a linked franchise registration.')
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        if user_id:
+            cursor.execute('DELETE FROM dbo.password_reset_tokens WHERE user_id = ?;', (user_id,))
+            cursor.execute(
+                "DELETE FROM dbo.auth_users WHERE id = ? AND role = N'franchise_admin';",
+                (user_id,),
+            )
+        cursor.execute(
+            "DELETE FROM dbo.auth_users WHERE franchise_id = ? AND role = N'franchise_admin';",
+            (franchise_id,),
+        )
+        conn.commit()
+
+    delete_item('franchises', franchise_id)
+    delete_item('approvals', int(approval_record.get('id') or 0))
+
+    return {
+        'approvalId': int(approval_record.get('id') or 0),
+        'franchiseId': franchise_id,
+        'userId': user_id,
+    }
+
 
 def validate_team_franchise_assignment(team_id: int | None, team_record: dict[str, Any]) -> str | None:
     franchise_id = int(team_record.get('franchise_id') or 0)
@@ -946,6 +1000,25 @@ async def item_update(resource_name: str, identifier: str, request: Request) -> 
         sync_approval_side_effects(saved)
     append_audit_log_safe(request, user=user, action=f"{resource_name}.{'patch' if request.method == 'PATCH' else 'update'}", resource_name=resource_name, resource_id=record_id, detail={'before': existing, 'after': saved})
     return saved
+
+
+@app.delete('/api/approvals/{identifier}/rejected-franchise-registration/')
+def rejected_franchise_registration_delete(identifier: str, request: Request) -> Response:
+    record_id = parse_identifier(identifier)
+    existing = get_item('approvals', record_id)
+    if not existing:
+        api_error(404, 'approval not found.')
+    user = require_super_admin_access(request, 'Only the super admin can delete rejected franchise registrations.')
+    deleted = cleanup_rejected_franchise_registration(existing)
+    append_audit_log_safe(
+        request,
+        user=user,
+        action='approvals.delete_rejected_franchise_registration',
+        resource_name='approvals',
+        resource_id=record_id,
+        detail={**deleted, 'approval': existing},
+    )
+    return Response(status_code=204)
 
 
 @app.delete('/api/{resource_name}/{identifier}/')

@@ -7,6 +7,7 @@ import {
   FaEye,
   FaCheck,
   FaTimes,
+  FaTrash,
   FaUsers,
   FaBuilding,
   FaClipboardList,
@@ -17,7 +18,11 @@ import FilterBar from "../../components/dashboard/FilterBar";
 import ExportButton from "../../components/dashboard/ExportButton";
 import Badge from "../../components/common/Badge";
 import ManagementModal from "../../components/dashboard/ManagementModal";
-import { getApprovals, patchApproval } from "../../api/approvalsAPI";
+import {
+  deleteRejectedFranchiseApproval,
+  getApprovals,
+  patchApproval,
+} from "../../api/approvalsAPI";
 import { getPlayers } from "../../api/playersAPI";
 import { getTeams } from "../../api/teamsAPI";
 import { getApiErrorMessage } from "../../utils/apiErrors";
@@ -245,6 +250,15 @@ function getFranchiseApprovalContext(approval) {
       value: meta?.userId,
     },
   ].filter((item) => hasApprovalValue(item.value));
+}
+
+function canDeleteRejectedFranchiseApproval(approval) {
+  return (
+    String(approval?.status || "").toLowerCase() === "rejected" &&
+    String(approval?.request_type || "").toLowerCase() ===
+      "franchise registration" &&
+    Boolean(parseFranchiseApprovalMeta(approval?.notes || ""))
+  );
 }
 
 function getPlayerApprovalContext(approval) {
@@ -527,6 +541,7 @@ export default function AdminApprovalsPage() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingApprovalId, setDeletingApprovalId] = useState(null);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({
     search: "",
@@ -850,6 +865,51 @@ export default function AdminApprovalsPage() {
     }
   };
 
+  const handleDeleteRejectedFranchise = async (approval) => {
+    if (!canDeleteRejectedFranchiseApproval(approval)) {
+      return;
+    }
+
+    const franchiseName =
+      getApprovalContextValue(getFranchiseApprovalContext(approval), "Franchise Name") ||
+      approval.requested_by ||
+      "this franchise";
+
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Delete ${franchiseName}? This removes the rejected franchise registration, linked franchise admin account, and approval row.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setDeletingApprovalId(approval.id);
+      setError("");
+      await deleteRejectedFranchiseApproval(approval.id);
+      setApprovals((prev) =>
+        prev.filter((item) => String(item.id) !== String(approval.id))
+      );
+      if (selectedApproval && String(selectedApproval.id) === String(approval.id)) {
+        setSelectedApproval(null);
+        setSelectedApprovalTeamId(null);
+        setShowSelectedTeamPlayers(false);
+      }
+    } catch (requestError) {
+      setError(
+        getApiErrorMessage(
+          requestError,
+          "Unable to delete this rejected franchise registration."
+        )
+      );
+    } finally {
+      setSaving(false);
+      setDeletingApprovalId(null);
+    }
+  };
+
   const handleExport = () => {
     downloadCsv(
       "spl-approvals.csv",
@@ -941,6 +1001,20 @@ export default function AdminApprovalsPage() {
             >
               <FaTimes size={12} />
               Reject
+            </button>
+          ) : null}
+
+          {canDeleteRejectedFranchiseApproval(row) ? (
+            <button
+              type="button"
+              onClick={() => handleDeleteRejectedFranchise(row)}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-600 disabled:opacity-70"
+            >
+              <FaTrash size={12} />
+              {String(deletingApprovalId) === String(row.id)
+                ? "Deleting..."
+                : "Delete"}
             </button>
           ) : null}
         </div>
@@ -1375,6 +1449,20 @@ export default function AdminApprovalsPage() {
                   className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-70"
                 >
                   Reject
+                </button>
+              ) : null}
+
+              {canDeleteRejectedFranchiseApproval(selectedApproval) ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRejectedFranchise(selectedApproval)}
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-70"
+                >
+                  <FaTrash size={12} />
+                  {String(deletingApprovalId) === String(selectedApproval.id)
+                    ? "Deleting..."
+                    : "Delete Franchise"}
                 </button>
               ) : null}
 

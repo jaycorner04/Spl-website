@@ -71,3 +71,11 @@ export async function updateApproval(id, payload) {
   notifyApprovalSideEffects(response.data);
   return response.data;
 }
+
+export async function deleteRejectedFranchiseApproval(id) {
+  await axiosInstance.delete(
+    `/api/approvals/${id}/rejected-franchise-registration/`
+  );
+  notifyApprovalsUpdated();
+  notifyFranchisesUpdated();
+}
