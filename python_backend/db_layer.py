@@ -493,6 +493,7 @@ def _connection_string(database: str | None = None) -> str:
         f"Password={settings.db_password};"
         f"Encrypt={'True' if settings.db_encrypt else 'False'};"
         f"TrustServerCertificate={'True' if settings.db_trust_server_certificate else 'False'};"
+        f"Connection Timeout={settings.db_connection_timeout_seconds};"
         "Application Name=SPLPythonBackend;"
     )
 
@@ -540,7 +541,7 @@ def _run_sql(query: str, params: tuple[Any, ...] = (), database: str | None = No
         "query": prepared_query,
         "parameters": parameters,
         "expectRows": _query_returns_rows(prepared_query) if expect_rows is None else bool(expect_rows),
-        "commandTimeoutSeconds": 120,
+        "commandTimeoutSeconds": settings.db_command_timeout_seconds,
     }
 
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as handle:
@@ -548,24 +549,30 @@ def _run_sql(query: str, params: tuple[Any, ...] = (), database: str | None = No
         temp_path = handle.name
 
     try:
-        completed = subprocess.run(
-            [
-                *_resolve_powershell_command(),
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(SQLCLIENT_RUNNER),
-                "-PayloadPath",
-                temp_path,
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            cwd=str(Path(__file__).resolve().parents[1]),
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                [
+                    *_resolve_powershell_command(),
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(SQLCLIENT_RUNNER),
+                    "-PayloadPath",
+                    temp_path,
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                cwd=str(Path(__file__).resolve().parents[1]),
+                check=False,
+                timeout=settings.db_process_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError(
+                "SQL execution timed out before the backend received a response."
+            ) from error
     finally:
         Path(temp_path).unlink(missing_ok=True)
 

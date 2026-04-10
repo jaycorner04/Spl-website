@@ -57,6 +57,13 @@ def _parse_bool(value: str | None, default: bool) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _parse_int(value: str | None, default: int) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
 def _parse_csv(value: str | None) -> list[str]:
     if not value:
         return []
@@ -94,6 +101,18 @@ class Settings:
     db_trust_server_certificate: bool = _parse_bool(
         os.getenv("DB_TRUST_SERVER_CERTIFICATE"),
         True,
+    )
+    db_connection_timeout_seconds: int = _parse_int(
+        os.getenv("DB_CONNECTION_TIMEOUT_SECONDS"),
+        10,
+    )
+    db_command_timeout_seconds: int = _parse_int(
+        os.getenv("DB_COMMAND_TIMEOUT_SECONDS"),
+        30,
+    )
+    db_process_timeout_seconds: int = _parse_int(
+        os.getenv("DB_PROCESS_TIMEOUT_SECONDS"),
+        45,
     )
     cors_allowed_origins: list[str] = None  # type: ignore[assignment]
     api_version: str = "1.12.0-py"

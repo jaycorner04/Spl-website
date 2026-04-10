@@ -90,6 +90,9 @@ CORS_ALLOWED_ORIGINS=${PROD_CORS_ALLOWED_ORIGINS:-same-origin}
 RATE_LIMIT_ENABLED=${PROD_RATE_LIMIT_ENABLED:-true}
 DB_ENCRYPT=${db_encrypt}
 DB_TRUST_SERVER_CERTIFICATE=${db_trust_server_certificate}
+DB_CONNECTION_TIMEOUT_SECONDS=${PROD_DB_CONNECTION_TIMEOUT_SECONDS:-10}
+DB_COMMAND_TIMEOUT_SECONDS=${PROD_DB_COMMAND_TIMEOUT_SECONDS:-30}
+DB_PROCESS_TIMEOUT_SECONDS=${PROD_DB_PROCESS_TIMEOUT_SECONDS:-45}
 EOF
 }
 
@@ -175,7 +178,7 @@ wait_for_sqlserver() {
   local attempt=0
 
   while [[ $attempt -lt 40 ]]; do
-    if docker exec "$SQL_CONTAINER_NAME" bash -lc '
+    if timeout 20s docker exec "$SQL_CONTAINER_NAME" bash -lc '
       if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then
         /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "'"$SQL_SA_PASSWORD"'" -C -Q "SELECT 1"
       elif [ -x /opt/mssql-tools/bin/sqlcmd ]; then
@@ -247,7 +250,7 @@ preinitialize_backend_state() {
   export_backend_runtime_env
 
   pushd "$APP_ROOT" >/dev/null
-  python3 - <<'PY'
+  timeout 300s python3 - <<'PY'
 from python_backend.db_layer import get_database_health, initialize_database
 
 initialize_database()
@@ -262,7 +265,7 @@ wait_for_api_ready() {
   local attempt=0
 
   while [[ $attempt -lt 60 ]]; do
-    if curl -fsS "$health_url" >/dev/null 2>&1; then
+    if curl --connect-timeout 5 --max-time 15 -fsS "$health_url" >/dev/null 2>&1; then
       echo "Application is responding at ${base_url}"
       return
     fi
