@@ -203,7 +203,6 @@ export default function FranchiseDashboard() {
   const location = useLocation();
   const authUser = getAuthUser();
   const isFranchiseAdmin = authUser?.role === "franchise_admin";
-  const scopedFranchiseId = String(authUser?.franchiseId || "");
   const statusMessage = location.state?.message || "";
   const [searchParams] = useSearchParams();
   const [franchises, setFranchises] = useState([]);
