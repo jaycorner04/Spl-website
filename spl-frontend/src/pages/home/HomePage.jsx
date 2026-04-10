@@ -17,6 +17,37 @@ function getArrayOrEmpty(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function isApprovedFranchise(item) {
+  const normalizedStatus = String(item?.status || "").trim().toLowerCase();
+  return !normalizedStatus || normalizedStatus === "approved";
+}
+
+function getParticipatingFranchiseCount(franchises, teams) {
+  const approvedFranchises = franchises.filter(isApprovedFranchise);
+
+  if (teams.length === 0) {
+    return approvedFranchises.length;
+  }
+
+  const linkedTeamFranchiseIds = new Set(
+    teams
+      .map((team) => String(team.franchise_id || "").trim())
+      .filter(Boolean)
+  );
+  const participatingFranchises = approvedFranchises.filter((franchise) =>
+    linkedTeamFranchiseIds.has(String(franchise.id))
+  );
+  const participatingFranchiseIds = new Set(
+    participatingFranchises.map((franchise) => String(franchise.id))
+  );
+  const standaloneTeamCount = teams.filter((team) => {
+    const franchiseId = String(team.franchise_id || "").trim();
+    return !franchiseId || !participatingFranchiseIds.has(franchiseId);
+  }).length;
+
+  return participatingFranchises.length + standaloneTeamCount;
+}
+
 const bundledHeroVideoUrl = "/videos/hero-video-optimized.mp4";
 
 export default function HomePage() {
@@ -55,14 +86,16 @@ export default function HomePage() {
   const seasonStats = getArrayOrEmpty(homeContent?.seasonStats);
   const hasHomeTeamData = franchiseItems.length > 0 || teamItems.length > 0;
   const visibleHomeContentError = hasHomeTeamData ? "" : homeContentError;
-  const stats =
+  const participatingFranchiseCount = getParticipatingFranchiseCount(
+    franchiseItems,
+    teamItems
+  );
+  const stats = (
     liveHeroStats.length > 0
       ? liveHeroStats
       : [
           {
-            value: String(
-              franchiseItems.length > 0 ? franchiseItems.length : teamItems.length
-            ),
+            value: String(participatingFranchiseCount),
             label: "Franchises",
           },
           {
@@ -73,7 +106,12 @@ export default function HomePage() {
             value: "0",
             label: "Matches",
           },
-        ];
+        ]
+  ).map((item) =>
+    String(item.label || "").trim().toLowerCase() === "franchises"
+      ? { ...item, value: String(participatingFranchiseCount) }
+      : item
+  );
   const closeAnnouncementPopup = useCallback(() => {
     setIsAnnouncementPopupOpen(false);
   }, []);

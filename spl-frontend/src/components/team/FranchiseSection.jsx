@@ -22,9 +22,24 @@ export default function FranchiseSection({
       }),
     [franchises]
   );
-  const allFranchiseIds = useMemo(
-    () => new Set(franchises.map((item) => String(item.id))),
-    [franchises]
+  const visibleFranchises = useMemo(() => {
+    if (teams.length === 0) {
+      return approvedFranchises;
+    }
+
+    const linkedTeamFranchiseIds = new Set(
+      teams
+        .map((team) => String(team.franchise_id || "").trim())
+        .filter(Boolean)
+    );
+
+    return approvedFranchises.filter((franchise) =>
+      linkedTeamFranchiseIds.has(String(franchise.id))
+    );
+  }, [approvedFranchises, teams]);
+  const visibleFranchiseIds = useMemo(
+    () => new Set(visibleFranchises.map((item) => String(item.id))),
+    [visibleFranchises]
   );
 
   const formattedFranchises = useMemo(() => {
@@ -43,7 +58,7 @@ export default function FranchiseSection({
       return accumulator;
     }, {});
 
-    const franchiseCards = approvedFranchises.map((franchise) => {
+    const franchiseCards = visibleFranchises.map((franchise) => {
       const linkedTeams = (linkedTeamsByFranchiseId[String(franchise.id)] || [])
         .slice()
         .sort((left, right) =>
@@ -81,7 +96,7 @@ export default function FranchiseSection({
       .filter((team) => {
         const teamFranchiseId = String(team.franchise_id || "");
 
-        return !teamFranchiseId || !allFranchiseIds.has(teamFranchiseId);
+        return !teamFranchiseId || !visibleFranchiseIds.has(teamFranchiseId);
       })
       .sort((left, right) =>
         String(left.team_name || "").localeCompare(String(right.team_name || ""))
@@ -105,7 +120,7 @@ export default function FranchiseSection({
       });
 
     return [...franchiseCards, ...standaloneCards];
-  }, [allFranchiseIds, approvedFranchises, teams]);
+  }, [visibleFranchiseIds, visibleFranchises, teams]);
 
   return (
     <section className="spl-home-shell relative z-10 w-full py-12 sm:py-14">

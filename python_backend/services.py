@@ -367,6 +367,16 @@ def build_public_home_entities(
         if not str(team.get("franchise_id") or "").strip()
         or str(team.get("franchise_id")) in approved_franchise_ids
     ]
+    public_team_franchise_ids = {
+        str(int(safe_number(team.get("franchise_id"))))
+        for team in public_teams
+        if int(safe_number(team.get("franchise_id"))) > 0
+    }
+    participating_franchises = [
+        franchise
+        for franchise in public_franchises
+        if str(int(safe_number(franchise.get("id")))) in public_team_franchise_ids
+    ]
     public_team_ids = {
         int(safe_number(team.get("id")))
         for team in public_teams
@@ -411,7 +421,7 @@ def build_public_home_entities(
     ]
 
     return {
-        "franchises": public_franchises,
+        "franchises": participating_franchises,
         "teams": public_teams,
         "players": public_players,
         "performances": public_performances,
