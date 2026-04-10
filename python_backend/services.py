@@ -803,9 +803,20 @@ def get_admin_shell_payload(user: dict[str, Any]) -> dict[str, Any]:
 
 
 def resolve_franchise_context(user: dict[str, Any], query_params: dict[str, Any]) -> dict[str, Any]:
+    franchise_id_value = user.get("franchiseId")
+    if not franchise_id_value and user.get("email"):
+        try:
+            from .auth_layer import find_user_by_email
+
+            stored_user = find_user_by_email(str(user.get("email") or ""))
+            if stored_user and stored_user.get("franchiseId"):
+                franchise_id_value = stored_user.get("franchiseId")
+        except Exception:
+            franchise_id_value = franchise_id_value
+
     franchises = list_collection("franchises")
     teams = list_collection("teams")
-    franchise_id = int(safe_number(query_params.get("franchiseId") or user.get("franchiseId") or 0))
+    franchise_id = int(safe_number(query_params.get("franchiseId") or franchise_id_value or 0))
     team_id = int(safe_number(query_params.get("teamId") or 0))
     requested_team_name = str(query_params.get("team") or "").strip().lower()
     team = next((entry for entry in teams if int(safe_number(entry.get("id"))) == team_id), None)
