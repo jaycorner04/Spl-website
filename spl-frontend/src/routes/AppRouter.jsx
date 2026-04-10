@@ -20,6 +20,7 @@ const AdminAnalytics = lazy(() => import("../pages/admin/AdminAnalytics"));
 const AdminAnnouncementsPage = lazy(() =>
   import("../pages/admin/AdminAnnouncementsPage")
 );
+const AdminUsersPage = lazy(() => import("../pages/admin/AdminUsersPage"));
 const ChangePasswordPage = lazy(() =>
   import("../pages/admin/ChangePasswordPage")
 );
@@ -100,6 +101,7 @@ export default function AppRouter() {
               path="/admin/change-password"
               element={<ChangePasswordPage />}
             />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route
               path="/admin/franchise"
               element={<Navigate to="/admin/franchises" replace />}

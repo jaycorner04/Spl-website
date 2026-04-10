@@ -31,11 +31,13 @@ const {
   getUserFromAuthorizationHeader,
   isPlatformAdmin,
   isPrivilegedUser,
+  listAdminUsers,
   loginUser,
   registerUser,
   requestPasswordReset,
   resetPassword,
   syncFranchiseRegistrationApproval,
+  updateAdminUserAccess,
   updateUserAvatar,
 } = require("./authService");
 
@@ -1779,6 +1781,74 @@ async function handleAdminAnalyticsRequest(request, response) {
   sendJson(response, 200, payload);
 }
 
+async function handleAdminUsersRequest(pathname, request, response) {
+  if (pathname === "/api/admin/users" || pathname === "/api/admin/users/") {
+    if (request.method !== "GET") {
+      sendError(response, 405, "Method not allowed for this route.");
+      return;
+    }
+
+    const user = await requireSuperAdminAccess(
+      request,
+      response,
+      "Only the super admin can manage user access."
+    );
+
+    if (!user) {
+      return;
+    }
+
+    const items = await listAdminUsers();
+    sendJson(response, 200, { items, total: items.length });
+    return;
+  }
+
+  const match = pathname.match(/^\/api\/admin\/users\/(\d+)\/?$/i);
+  if (!match) {
+    sendError(response, 404, "Admin users route not found.");
+    return;
+  }
+
+  if (!["PATCH", "PUT"].includes(request.method)) {
+    sendError(response, 405, "Method not allowed for this route.");
+    return;
+  }
+
+  const user = await requireSuperAdminAccess(
+    request,
+    response,
+    "Only the super admin can manage user access."
+  );
+
+  if (!user) {
+    return;
+  }
+
+  const targetId = Number(match[1]);
+
+  try {
+    const payload = await parseBody(request);
+    const updatedUser = await updateAdminUserAccess(user, targetId, payload);
+
+    await appendAuditLogSafe(request, {
+      user,
+      action: "admin.users.update",
+      resourceName: "auth_users",
+      resourceId: updatedUser?.id ?? targetId,
+      status: "success",
+      detail: {
+        role: updatedUser?.role,
+        status: updatedUser?.status,
+        franchiseId: updatedUser?.franchiseId ?? null,
+      },
+    });
+
+    sendJson(response, 200, { item: updatedUser });
+  } catch (error) {
+    sendError(response, error.statusCode || 500, error.message || "Unable to update user access.");
+  }
+}
+
 async function handleAdminShellRequest(pathname, request, response) {
   if (pathname === "/api/admin/shell/profile") {
     if (request.method !== "PATCH") {
@@ -2705,6 +2775,11 @@ async function handleRequest(request, response) {
 
   if (pathname === "/api/admin/analytics") {
     await handleAdminAnalyticsRequest(request, response);
+    return;
+  }
+
+  if (pathname === "/api/admin/users" || pathname.startsWith("/api/admin/users/")) {
+    await handleAdminUsersRequest(pathname, request, response);
     return;
   }
 

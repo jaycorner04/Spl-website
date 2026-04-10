@@ -24,6 +24,7 @@ const ROLE_ALLOWED_PATHS = {
     "/admin",
     "/admin/analytics",
     "/admin/announcements",
+    "/admin/users",
     "/admin/franchises",
     "/admin/sponsors",
     "/admin/matches",

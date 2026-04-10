@@ -12,6 +12,20 @@ const ADMIN_ROLES = new Set([
   "scorer",
   "finance_admin",
 ]);
+const AUTH_MANAGED_ROLES = new Set([
+  "super_admin",
+  "ops_manager",
+  "franchise_admin",
+  "scorer",
+  "finance_admin",
+  "fan_user",
+]);
+const AUTH_MANAGED_STATUSES = {
+  active: "Active",
+  pending: "Pending",
+  suspended: "Suspended",
+  inactive: "Inactive",
+};
 const PLATFORM_ADMIN_ROLES = new Set([
   "super_admin",
   "ops_manager",
@@ -201,6 +215,15 @@ function mapAuthUserRecord(record = {}) {
   };
 }
 
+function mapAdminUserRecord(record = {}) {
+  return {
+    ...mapAuthUserRecord(record),
+    franchiseName: record.franchise_name || "",
+    franchiseLogo: record.franchise_logo || "",
+    franchiseStatus: record.franchise_status || "",
+  };
+}
+
 async function findUserByEmail(email) {
   const pool = await initializeDatabase();
   const result = await pool.request()
@@ -270,6 +293,16 @@ async function getAuthUserByEmail(email) {
   return user ? sanitizeAuthUser(user) : null;
 }
 
+function sanitizeAdminUser(userRecord) {
+  return {
+    ...sanitizeAuthUser(userRecord),
+    franchiseName: String(userRecord.franchiseName || ""),
+    franchiseLogo: String(userRecord.franchiseLogo || ""),
+    franchiseStatus: String(userRecord.franchiseStatus || ""),
+    updatedAt: userRecord.updatedAt || "",
+  };
+}
+
 async function getNextId(tableName) {
   const pool = await initializeDatabase();
   const result = await pool.request().query(`
@@ -298,6 +331,202 @@ FROM dbo.[${tableName}];
 `);
 
   return Number(result.recordset[0]?.next_id || 1);
+}
+
+function normalizeAdminUserRole(role, fallback = "fan_user") {
+  const normalized = String(role || "").trim().toLowerCase();
+  return AUTH_MANAGED_ROLES.has(normalized) ? normalized : fallback;
+}
+
+function normalizeAdminUserStatus(status, fallback = "Active") {
+  const normalized = String(status || "").trim().toLowerCase();
+  return AUTH_MANAGED_STATUSES[normalized] || fallback;
+}
+
+async function listAdminUsers() {
+  const pool = await initializeDatabase();
+  const result = await pool.request().query(`
+SELECT
+  u.id,
+  u.full_name,
+  u.email,
+  u.employee_id,
+  u.franchise_id,
+  u.role,
+  u.status,
+  u.salt,
+  u.iterations,
+  u.key_length,
+  u.digest,
+  u.password_hash,
+  u.avatar,
+  u.created_at,
+  u.updated_at,
+  f.company_name AS franchise_name,
+  f.logo AS franchise_logo,
+  f.status AS franchise_status
+FROM dbo.auth_users AS u
+LEFT JOIN dbo.franchises AS f
+  ON f.id = u.franchise_id
+ORDER BY u.id ASC;
+`);
+
+  return result.recordset.map((record) => sanitizeAdminUser(mapAdminUserRecord(record)));
+}
+
+async function fetchAdminUserRow(userId) {
+  const pool = await initializeDatabase();
+  const result = await pool.request()
+    .input("id", sql.Int, Number(userId))
+    .query(`
+SELECT TOP 1
+  u.id,
+  u.full_name,
+  u.email,
+  u.employee_id,
+  u.franchise_id,
+  u.role,
+  u.status,
+  u.salt,
+  u.iterations,
+  u.key_length,
+  u.digest,
+  u.password_hash,
+  u.avatar,
+  u.created_at,
+  u.updated_at,
+  f.company_name AS franchise_name,
+  f.logo AS franchise_logo,
+  f.status AS franchise_status
+FROM dbo.auth_users AS u
+LEFT JOIN dbo.franchises AS f
+  ON f.id = u.franchise_id
+WHERE u.id = @id;
+`);
+
+  return result.recordset[0]
+    ? sanitizeAdminUser(mapAdminUserRecord(result.recordset[0]))
+    : null;
+}
+
+async function updateAdminUserAccess(actor, userId, payload) {
+  if (String(actor?.role || "") !== "super_admin") {
+    const error = new Error("Only the super admin can update user access.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    const error = new Error("Request body must be a JSON object.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetId = Number(userId);
+  if (!Number.isInteger(targetId) || targetId < 1) {
+    const error = new Error("User id must be a positive integer.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const actorId = Number(actor?.id || 0);
+  if (actorId && actorId === targetId) {
+    const error = new Error("You cannot change your own role or status from this screen.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetUser = await findUserById(targetId);
+  if (!targetUser) {
+    const error = new Error("User not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const nextRole = normalizeAdminUserRole(payload.role, targetUser.role || "fan_user");
+  if (!AUTH_MANAGED_ROLES.has(nextRole)) {
+    const error = new Error("Selected role is not supported.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const nextStatus = normalizeAdminUserStatus(payload.status, targetUser.status || "Active");
+  if (!Object.values(AUTH_MANAGED_STATUSES).includes(nextStatus)) {
+    const error = new Error("Selected status is not supported.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let nextFranchiseId = null;
+  const franchiseIdValue = payload.franchiseId ?? payload.franchise_id;
+  if (nextRole === "franchise_admin") {
+    const selectedFranchiseId =
+      franchiseIdValue === null ||
+      franchiseIdValue === undefined ||
+      franchiseIdValue === "" ||
+      Number(franchiseIdValue) === 0
+        ? targetUser.franchiseId
+        : franchiseIdValue;
+    nextFranchiseId = Number(selectedFranchiseId);
+
+    if (!Number.isInteger(nextFranchiseId) || nextFranchiseId < 1) {
+      const error = new Error("A franchise must be selected for franchise admins.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const pool = await initializeDatabase();
+    const franchiseCheck = await pool.request()
+      .input("id", sql.Int, nextFranchiseId)
+      .query(`
+SELECT TOP 1 id, company_name
+FROM dbo.franchises
+WHERE id = @id;
+`);
+
+    if (!franchiseCheck.recordset[0]) {
+      const error = new Error("Selected franchise was not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+  }
+
+  if (targetUser.role === "super_admin" && nextRole !== "super_admin") {
+    const pool = await initializeDatabase();
+    const remainingResult = await pool.request()
+      .input("id", sql.Int, targetId)
+      .query(`
+SELECT COUNT_BIG(1) AS total
+FROM dbo.auth_users
+WHERE role = 'super_admin' AND id <> @id;
+`);
+
+    if (Number(remainingResult.recordset[0]?.total || 0) < 1) {
+      const error = new Error("At least one super admin must remain active.");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const updatedAt = new Date().toISOString();
+  const pool = await initializeDatabase();
+  await pool.request()
+    .input("id", sql.Int, targetId)
+    .input("role", sql.NVarChar(50), nextRole)
+    .input("status", sql.NVarChar(50), nextStatus)
+    .input("franchise_id", sql.Int, nextFranchiseId)
+    .input("updated_at", sql.NVarChar(64), updatedAt)
+    .query(`
+UPDATE dbo.auth_users
+SET
+  role = @role,
+  status = @status,
+  franchise_id = @franchise_id,
+  updated_at = @updated_at
+WHERE id = @id;
+`);
+
+  return fetchAdminUserRow(targetId);
 }
 
 function buildFranchiseApprovalNotes({
@@ -915,10 +1144,12 @@ module.exports = {
   getUserFromAuthorizationHeader,
   isPlatformAdmin,
   isPrivilegedUser,
+  listAdminUsers,
   loginUser,
   registerUser,
   requestPasswordReset,
   resetPassword,
   syncFranchiseRegistrationApproval,
+  updateAdminUserAccess,
   updateUserAvatar,
 };

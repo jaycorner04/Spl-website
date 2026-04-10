@@ -20,7 +20,9 @@ from .auth_layer import (
     get_user_from_authorization_header,
     is_privileged_user,
     change_password,
+    list_admin_users,
     login_user,
+    update_admin_user_access,
     register_user,
     request_password_reset,
     reset_password,
@@ -744,6 +746,37 @@ def admin_dashboard_section(section: str, request: Request) -> Any:
 def admin_analytics(request: Request) -> dict[str, Any]:
     require_super_admin_access(request, 'Only the super admin can access admin analytics.')
     return build_admin_analytics_payload()
+
+
+@app.get('/api/admin/users/')
+def admin_users(request: Request) -> dict[str, Any]:
+    require_super_admin_access(request, 'Only the super admin can manage user access.')
+    items = list_admin_users()
+    return {'items': items, 'total': len(items)}
+
+
+@app.patch('/api/admin/users/{user_id}/')
+@app.put('/api/admin/users/{user_id}/')
+async def admin_user_update(user_id: int, request: Request) -> dict[str, Any]:
+    user = require_super_admin_access(request, 'Only the super admin can manage user access.')
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        api_error(400, 'Request body must be a JSON object.')
+
+    updated_user = update_admin_user_access(user, user_id, payload)
+    append_audit_log_safe(
+        request,
+        user=user,
+        action=f'admin.users.{request.method.lower()}',
+        resource_name='auth_users',
+        resource_id=int(updated_user.get('id') or user_id),
+        detail={
+            'role': updated_user.get('role'),
+            'status': updated_user.get('status'),
+            'franchiseId': updated_user.get('franchiseId'),
+        },
+    )
+    return updated_user
 
 
 @app.get('/api/admin/announcements/maintenance/')

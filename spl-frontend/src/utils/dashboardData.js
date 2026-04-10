@@ -20,6 +20,12 @@ export const adminSidebarSections = [
     ],
   },
   {
+    title: "Access",
+    items: [
+      { label: "Users & Roles", path: "/admin/users", icon: "UR" },
+    ],
+  },
+  {
     title: "Finance",
     items: [
       { label: "Finance", path: "/admin/finance", icon: "💰" },

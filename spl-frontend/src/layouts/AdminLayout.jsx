@@ -11,6 +11,7 @@ const titleMap = {
   "/admin/players": "PLAYER MANAGEMENT",
   "/admin/finance": "FINANCE DASHBOARD",
   "/admin/teams": "TEAM MANAGEMENT",
+  "/admin/users": "USERS & ROLES",
   "/admin/franchises": "FRANCHISE MANAGEMENT",
   "/admin/approvals": "APPROVALS",
   "/admin/auction": "AUCTION MANAGEMENT",

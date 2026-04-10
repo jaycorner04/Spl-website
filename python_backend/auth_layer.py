@@ -12,6 +12,7 @@ from .config import settings
 from .db_layer import (
     create_item,
     ensure_demo_auth_account,
+    fetch_all,
     fetch_one,
     get_connection,
     get_item,
@@ -35,6 +36,20 @@ ADMIN_ROLES = {
 PLATFORM_ADMIN_ROLES = {"super_admin", "ops_manager", "scorer", "finance_admin"}
 FRANCHISE_DASHBOARD_ROLES = {"super_admin", "franchise_admin"}
 FRANCHISE_APPROVAL_META_PREFIX = "__SPL_FRANCHISE_REG__"
+AUTH_MANAGED_ROLES = {
+    "super_admin",
+    "ops_manager",
+    "franchise_admin",
+    "scorer",
+    "finance_admin",
+    "fan_user",
+}
+AUTH_MANAGED_STATUSES = {
+    "active": "Active",
+    "pending": "Pending",
+    "suspended": "Suspended",
+    "inactive": "Inactive",
+}
 DEMO_RECOVERY_PASSWORDS = {
     "admin@spl.local": "Spl@12345",
     "ops@spl.local": "Spl@12345",
@@ -115,6 +130,20 @@ def sanitize_auth_user(user_record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def sanitize_admin_user(user_record: dict[str, Any]) -> dict[str, Any]:
+    base_user = sanitize_auth_user(user_record)
+    franchise_name = str(user_record.get("franchiseName") or "").strip()
+    franchise_logo = str(user_record.get("franchiseLogo") or "").strip()
+    franchise_status = str(user_record.get("franchiseStatus") or "").strip()
+    return {
+        **base_user,
+        "franchiseName": franchise_name,
+        "franchiseLogo": franchise_logo,
+        "franchiseStatus": franchise_status,
+        "updatedAt": user_record.get("updatedAt") or "",
+    }
+
+
 def _to_base64_url(value: str) -> str:
     return base64.urlsafe_b64encode(value.encode("utf-8")).decode("utf-8").rstrip("=")
 
@@ -186,6 +215,15 @@ def map_auth_user_record(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def map_admin_user_record(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **map_auth_user_record(record),
+        "franchiseName": record.get("franchise_name") or "",
+        "franchiseLogo": record.get("franchise_logo") or "",
+        "franchiseStatus": record.get("franchise_status") or "",
+    }
+
+
 def find_user_by_email(email: str) -> dict[str, Any] | None:
     row = fetch_one(
         """
@@ -210,6 +248,163 @@ WHERE id = ?;
         (int(user_id),),
     )
     return map_auth_user_record(row) if row else None
+
+
+def list_admin_users() -> list[dict[str, Any]]:
+    rows = fetch_all(
+        """
+SELECT
+  u.id,
+  u.full_name,
+  u.email,
+  u.employee_id,
+  u.franchise_id,
+  u.role,
+  u.status,
+  u.salt,
+  u.iterations,
+  u.key_length,
+  u.digest,
+  u.password_hash,
+  u.avatar,
+  u.created_at,
+  u.updated_at,
+  f.company_name AS franchise_name,
+  f.logo AS franchise_logo,
+  f.status AS franchise_status
+FROM dbo.auth_users AS u
+LEFT JOIN dbo.franchises AS f
+  ON f.id = u.franchise_id
+ORDER BY u.id ASC;
+"""
+    )
+    return [map_admin_user_record(row) for row in rows]
+
+
+def normalize_admin_user_role(role: Any, fallback: str = "fan_user") -> str:
+    normalized = str(role or "").strip().lower()
+    return normalized if normalized in AUTH_MANAGED_ROLES else fallback
+
+
+def normalize_admin_user_status(status: Any, fallback: str = "Active") -> str:
+    normalized = str(status or "").strip().lower()
+    return AUTH_MANAGED_STATUSES.get(normalized, fallback)
+
+
+def _fetch_admin_user_row(user_id: int) -> dict[str, Any] | None:
+    row = fetch_one(
+        """
+SELECT TOP 1
+  u.id,
+  u.full_name,
+  u.email,
+  u.employee_id,
+  u.franchise_id,
+  u.role,
+  u.status,
+  u.salt,
+  u.iterations,
+  u.key_length,
+  u.digest,
+  u.password_hash,
+  u.avatar,
+  u.created_at,
+  u.updated_at,
+  f.company_name AS franchise_name,
+  f.logo AS franchise_logo,
+  f.status AS franchise_status
+FROM dbo.auth_users AS u
+LEFT JOIN dbo.franchises AS f
+  ON f.id = u.franchise_id
+WHERE u.id = ?;
+""",
+        (int(user_id),),
+    )
+    return map_admin_user_record(row) if row else None
+
+
+def update_admin_user_access(
+    actor: dict[str, Any],
+    user_id: int,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if str(actor.get("role") or "") != "super_admin":
+        raise AuthError("Only the super admin can update user access.", 403)
+    if not isinstance(payload, dict):
+        raise AuthError("Request body must be a JSON object.", 400)
+
+    target_id = int(user_id)
+    if target_id < 1:
+        raise AuthError("User id must be a positive integer.", 400)
+
+    actor_id = int(actor.get("id") or 0)
+    if actor_id and actor_id == target_id:
+        raise AuthError("You cannot change your own role or status from this screen.", 400)
+
+    target_user = find_user_by_id(target_id)
+    if not target_user:
+        raise AuthError("User not found.", 404)
+
+    next_role = normalize_admin_user_role(payload.get("role"), target_user.get("role") or "fan_user")
+    if next_role not in AUTH_MANAGED_ROLES:
+        raise AuthError("Selected role is not supported.", 400)
+
+    next_status = normalize_admin_user_status(
+        payload.get("status"),
+        str(target_user.get("status") or "Active"),
+    )
+    if next_status not in set(AUTH_MANAGED_STATUSES.values()):
+        raise AuthError("Selected status is not supported.", 400)
+
+    franchise_id_value = payload.get("franchiseId", payload.get("franchise_id"))
+    next_franchise_id: int | None
+    if next_role == "franchise_admin":
+        if franchise_id_value in (None, "", 0, "0"):
+            franchise_id_value = target_user.get("franchiseId")
+        try:
+            next_franchise_id = int(franchise_id_value)
+        except Exception as error:
+            raise AuthError("A franchise must be selected for franchise admins.", 400) from error
+        if next_franchise_id < 1:
+            raise AuthError("A franchise must be selected for franchise admins.", 400)
+        franchise_row = fetch_one(
+            "SELECT TOP 1 id, company_name FROM dbo.franchises WHERE id = ?;",
+            (next_franchise_id,),
+        )
+        if not franchise_row:
+            raise AuthError("Selected franchise was not found.", 404)
+    else:
+        next_franchise_id = None
+
+    if target_user.get("role") == "super_admin" and next_role != "super_admin":
+        remaining_super_admins = fetch_one(
+            """
+SELECT COUNT_BIG(1) AS total
+FROM dbo.auth_users
+WHERE role = 'super_admin' AND id <> ?;
+""",
+            (target_id,),
+        )
+        if int(remaining_super_admins.get("total") or 0) < 1:
+            raise AuthError("At least one super admin must remain active.", 400)
+
+    updated_at = utc_now_iso()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+UPDATE dbo.auth_users
+SET role = ?, status = ?, franchise_id = ?, updated_at = ?
+WHERE id = ?;
+""",
+            (next_role, next_status, next_franchise_id, updated_at, target_id),
+        )
+        conn.commit()
+
+    updated_user = _fetch_admin_user_row(target_id)
+    if not updated_user:
+        raise AuthError("User update failed.", 500)
+    return updated_user
 
 
 def create_auth_response(user: dict[str, Any]) -> dict[str, Any]:
