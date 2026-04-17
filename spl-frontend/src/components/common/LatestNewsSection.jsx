@@ -6,7 +6,7 @@ export default function LatestNewsSection({ items = [] }) {
     <section className="spl-home-shell relative z-10 w-full py-8 sm:py-10">
       <div className="mb-7 flex items-center justify-between">
         <h2 className="font-heading text-3xl tracking-[0.08em] text-[#5f2439] sm:text-4xl lg:text-[3rem]">
-          LATEST <span className="text-[#b88a2a]">NEWS</span>
+          LATEST <span className="text-[#5f2439]">NEWS</span>
         </h2>
       </div>
 

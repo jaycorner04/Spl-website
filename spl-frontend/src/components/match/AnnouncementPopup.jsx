@@ -126,7 +126,7 @@ export default function AnnouncementPopup({
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-[#853953]/20 bg-white shadow-[0_35px_90px_rgba(15,23,42,0.35)]">
         <div className="relative overflow-hidden bg-[linear-gradient(135deg,#853953_0%,#5f2439_55%,#2f1525_100%)] px-6 pb-6 pt-7 text-white sm:px-8">
           <div className="absolute -left-12 top-10 h-32 w-32 rounded-full bg-[#f0b4cb]/15 blur-2xl" />
-          <div className="absolute -right-10 bottom-0 h-36 w-36 rounded-full bg-[#b88a2a]/20 blur-3xl" />
+          <div className="absolute -right-10 bottom-0 h-36 w-36 rounded-full bg-[#f0b4cb]/18 blur-3xl" />
 
           {!maintenanceMode ? (
             <button
@@ -145,11 +145,11 @@ export default function AnnouncementPopup({
           <h2 className="mt-3 font-heading text-[2rem] tracking-[0.08em] sm:text-[2.6rem]">
             {maintenanceMode ? (
               <>
-                MAINTEN<span className="text-[#f0c14b]">ANCE</span>
+                MAINTEN<span className="text-white">ANCE</span>
               </>
             ) : (
               <>
-                ANNOUNCE<span className="text-[#f0c14b]">MENTS</span>
+                ANNOUNCE<span className="text-white">MENTS</span>
               </>
             )}
           </h2>
@@ -160,7 +160,7 @@ export default function AnnouncementPopup({
           </p>
 
           {visibleMaintenanceNotice ? (
-            <div className="mt-4 rounded-2xl border border-[#f0c14b]/30 bg-white/10 px-4 py-3 backdrop-blur-sm">
+            <div className="mt-4 rounded-2xl border border-[#f0b4cb]/30 bg-white/10 px-4 py-3 backdrop-blur-sm">
               <p className="font-condensed text-[11px] uppercase tracking-[0.22em] text-[#f7d7e3]">
                 {visibleMaintenanceNotice.title}
               </p>

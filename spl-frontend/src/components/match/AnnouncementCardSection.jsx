@@ -21,7 +21,7 @@ export default function AnnouncementCardSection({ items = [] }) {
     <section className="spl-home-shell relative z-10 w-full pt-5 sm:pt-6">
       <div className="mb-6">
         <h2 className="font-heading text-[1.8rem] tracking-[0.08em] text-[#5f2439] sm:text-4xl lg:text-[3rem]">
-          ANNOUNCE<span className="text-[#b88a2a]">MENTS</span>
+          ANNOUNCE<span className="text-[#5f2439]">MENTS</span>
         </h2>
       </div>
 

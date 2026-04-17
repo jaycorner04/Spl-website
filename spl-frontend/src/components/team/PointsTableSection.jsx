@@ -208,24 +208,24 @@ export default function PointsTableSection({
 
   const getRankBadgeClass = (position) => {
     const badgeStyles = {
-      1: "bg-yellow-400 text-black",
-      2: "bg-slate-300 text-black",
-      3: "bg-orange-500 text-white",
-      4: "bg-sky-500 text-white",
-      5: "bg-emerald-500 text-white",
-      6: "bg-violet-500 text-white",
-      7: "bg-pink-500 text-white",
-      8: "bg-amber-600 text-white",
-      9: "bg-rose-500 text-white",
-      10: "bg-cyan-600 text-white",
+      1: "bg-[#5f2439] text-white",
+      2: "bg-[#7a364c] text-white",
+      3: "bg-[#934560] text-white",
+      4: "bg-[#ad5774] text-white",
+      5: "bg-[#c16d8b] text-white",
+      6: "bg-[#d48aa4] text-white",
+      7: "bg-[#e0a3ba] text-[#5f2439]",
+      8: "bg-[#ebbbcb] text-[#5f2439]",
+      9: "bg-[#f3d3de] text-[#5f2439]",
+      10: "bg-[#fae8ef] text-[#5f2439]",
     };
 
     return badgeStyles[position] || "border border-slate-200 bg-white text-slate-700";
   };
 
   const getRowAccent = (position) => {
-    if (position === 1) return "bg-[linear-gradient(90deg,rgba(255,215,64,0.16),rgba(255,255,255,0))]";
-    if (position <= 4) return "bg-[linear-gradient(90deg,rgba(56,189,248,0.12),rgba(255,255,255,0))]";
+    if (position === 1) return "bg-[linear-gradient(90deg,rgba(133,57,83,0.14),rgba(255,255,255,0))]";
+    if (position <= 4) return "bg-[linear-gradient(90deg,rgba(133,57,83,0.09),rgba(255,255,255,0))]";
     return "";
   };
 
@@ -234,7 +234,7 @@ export default function PointsTableSection({
       <div className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="font-heading text-3xl tracking-[0.08em] text-[#5f2439] sm:text-4xl lg:text-[3rem]">
-            POINTS <span className="text-[#b88a2a]">TABLE</span>
+            POINTS <span className="text-[#5f2439]">TABLE</span>
           </h2>
         </div>
 
@@ -273,19 +273,19 @@ export default function PointsTableSection({
                   <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
                   Qualifier 1
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#fff2e8] px-3 py-1.5 text-xs font-medium text-[#c2410c]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#fff3f7] px-3 py-1.5 text-xs font-medium text-[#853953]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#853953]" />
                   Eliminator
                 </div>
               </>
             ) : (
               <>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#fff7d6] px-3 py-1.5 text-xs font-medium text-[#8f6b10]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#fff3f7] px-3 py-1.5 text-xs font-medium text-[#853953]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#853953]" />
                   Table Leader
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#eef8ff] px-3 py-1.5 text-xs font-medium text-[#0f6caa]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#f9eaf0] px-3 py-1.5 text-xs font-medium text-[#7a364c]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ad5774]" />
                   Playoff Zone
                 </div>
               </>
@@ -309,7 +309,7 @@ export default function PointsTableSection({
                       <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Team</th>
                       <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Stage</th>
                       <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Opponent</th>
-                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-[#f6cf63] sm:px-5 sm:text-sm">Status</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Status</th>
                     </tr>
                   ) : (
                     <tr className="border-b border-slate-200 bg-[#0f2447]">
@@ -319,7 +319,7 @@ export default function PointsTableSection({
                       <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">W</th>
                       <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">L</th>
                       <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">NRR</th>
-                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-[#f6cf63] sm:px-5 sm:text-sm">Pts</th>
+                      <th className="px-4 py-4 text-left font-condensed text-xs uppercase tracking-[0.18em] text-white/75 sm:px-5 sm:text-sm">Pts</th>
                     </tr>
                   )}
                 </thead>
@@ -332,7 +332,7 @@ export default function PointsTableSection({
                       className={`border-b border-slate-100 transition hover:bg-slate-50 ${
                         index < 2
                           ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.10),rgba(255,255,255,0))]"
-                          : "bg-[linear-gradient(90deg,rgba(249,115,22,0.08),rgba(255,255,255,0))]"
+                          : "bg-[linear-gradient(90deg,rgba(133,57,83,0.08),rgba(255,255,255,0))]"
                       }`}
                     >
                       <td className="px-4 py-4 sm:px-5">
@@ -354,7 +354,7 @@ export default function PointsTableSection({
                       <td className="px-4 py-4 text-sm text-slate-700 sm:px-5 sm:text-base">{row.stage}</td>
                       <td className="px-4 py-4 text-sm text-slate-700 sm:px-5 sm:text-base">{row.opponent}</td>
                       <td className="px-4 py-4 sm:px-5">
-                        <span className="inline-flex rounded-full bg-[#fff7d6] px-3 py-1.5 text-xs font-medium text-[#8f6b10]">
+                        <span className="inline-flex rounded-full bg-[#fff3f7] px-3 py-1.5 text-xs font-medium text-[#853953]">
                           {row.status}
                         </span>
                       </td>
@@ -396,7 +396,7 @@ export default function PointsTableSection({
                       >
                         {row.nrr}
                       </td>
-                      <td className="px-4 py-4 font-heading text-xl text-[#b88a2a] sm:px-5 sm:text-2xl">
+                      <td className="px-4 py-4 font-heading text-xl text-[#853953] sm:px-5 sm:text-2xl">
                         {row.pts}
                       </td>
                     </tr>

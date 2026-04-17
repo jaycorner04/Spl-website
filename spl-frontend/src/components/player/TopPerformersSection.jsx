@@ -3,11 +3,11 @@ import RouteAction from "../common/RouteAction";
 import { getMediaUrl } from "../../utils/media";
 
 const TOP_PERFORMER_ACCENTS = [
-  "from-yellow-500/35 via-orange-400/10 to-transparent",
-  "from-cyan-500/35 via-sky-400/10 to-transparent",
-  "from-emerald-500/35 via-teal-400/10 to-transparent",
-  "from-rose-500/35 via-red-400/10 to-transparent",
-  "from-violet-500/35 via-fuchsia-400/10 to-transparent",
+  "from-[#853953]/38 via-[#f0b4cb]/10 to-transparent",
+  "from-[#6f2f46]/38 via-[#f0b4cb]/10 to-transparent",
+  "from-[#5f2439]/38 via-[#f7d7e3]/10 to-transparent",
+  "from-[#7a364c]/34 via-[#f0b4cb]/12 to-transparent",
+  "from-[#4f2033]/34 via-[#f7d7e3]/12 to-transparent",
 ];
 
 function normalizeTopPerformers(items) {
@@ -110,7 +110,7 @@ export default function TopPerformersSection({ items = [] }) {
     <section className="spl-home-shell relative z-10 w-full py-12 sm:py-14">
       <div className="mb-7">
         <h2 className="text-3xl font-bold tracking-[-0.03em] text-black sm:text-4xl lg:text-[3.1rem]">
-          Top <span className="text-yellow-400">Performers</span>
+          Top <span className="text-[#5f2439]">Performers</span>
         </h2>
       </div>
 
@@ -194,7 +194,7 @@ export default function TopPerformersSection({ items = [] }) {
                   </div>
 
                   <div className="mt-3 flex items-end gap-2 sm:mt-5 sm:gap-3">
-                    <span className="font-heading text-[1.55rem] leading-none text-[#f15c3d] sm:text-[4.2rem]">
+                    <span className="font-heading text-[1.55rem] leading-none text-[#f0b4cb] sm:text-[4.2rem]">
                       {player.statLine}
                     </span>
                     <span className="pb-1 text-[0.72rem] text-white/75 sm:pb-2 sm:text-[1.45rem]">{player.statLabel}</span>
